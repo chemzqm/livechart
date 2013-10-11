@@ -1,7 +1,7 @@
 {
   "name": "livechart",
   "repo": "chemzqm/livechart",
-  "description": "Simple linechart with livedata",
+  "description": "Scalable canvas chart for live data",
   "version": "0.0.1",
   "keywords": [],
   "dependencies": {
