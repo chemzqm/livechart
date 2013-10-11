@@ -1184,15 +1184,17 @@ function style(selector, prop) {
 }
 });
 require.register("livechart/index.js", function(exports, require, module){
-var Chart = require('./lib/chart');
 var LineChart = require('./lib/linechart');
+var AreaChart = require('./lib/areachart');
 var PieChart = require('./lib/piechart');
 var BarChart = require('./lib/barchart');
 var ArcChart = require('./lib/arcchart');
+var PolarChart = require('./lib/polarchart');
 var Histogram = require('./lib/histogram');
 
-module.exports.Chart = Chart;
 module.exports.LineChart = LineChart;
+module.exports.AreaChart = AreaChart;
+module.exports.PolarChart = PolarChart;
 module.exports.PieChart = PieChart;
 module.exports.BarChart = BarChart;
 module.exports.ArcChart = ArcChart;
@@ -1207,6 +1209,7 @@ var Configurable = require('configurable.js');
 var Emitter = require ('emitter');
 var raf = require ('raf');
 var style = require ('style');
+var Tween = require ('tween');
 
 
 var styles = window.getComputedStyle;
@@ -1219,9 +1222,10 @@ function Chart (dom) {
   this.resize();
   this.settings = {};
   this.styles = {};
-  this.set('colors', ['#E00000', '#0000E0']);
-  this.styles.color = style('.livechart .text', 'color') || '#99999';
+  this.styles.color = style('.livechart .text', 'color');
   this.styles.fontSize = style('.livechart .text', 'font-size') || '10px';
+  this.styles.titleColor = style('.livechart .title', 'color');
+  this.styles.titleSize = style('.livechart .title', 'font-size') || '14px';
 }
 
 Configurable(Chart.prototype);
@@ -1241,16 +1245,40 @@ Chart.prototype.resize = function() {
 }
 
 //should be implemented by subclass
-Chart.prototype.draw = function() {
+Chart.prototype.draw = function(delta) {
 }
 
 Chart.prototype.start = function() {
   var self = this;
+  var delta = 0;
+  var tween = Tween({d: 0})
+    .ease(this.get('ease') || 'in-out-quad')
+    .to({d: 1})
+    .duration(this.get('duration') || 500);
+
+  tween.update(function(o){
+    delta = o.d;
+    self.draw(delta);
+  });
+
+  tween.on('end', function(){
+    self.emit('end');
+    animate = function (){ }
+  });
+
   function animate () {
     raf(animate);
-    self.draw();
+    tween.update();
   }
   animate();
+}
+
+Chart.prototype.tween = function(from, to) {
+  return function (delta) {
+    for (var prop in from) {
+      this[prop] = from[prop] + (to[prop] - from[prop]) * delta;
+    }
+  }
 }
 
 Chart.prototype.drawLabels = function() {
@@ -1267,11 +1295,20 @@ Chart.prototype.drawLabels = function() {
   labels.forEach(function(text, i) {
     var color = colors[i];
     ctx.fillStyle = color;
-    drawRoundRect(ctx, 0, i * (h + 10) , 25, h );
+    drawRoundRect(ctx, 5, i * (h + 10) + 5 , 25, h );
     ctx.fillStyle = this.styles.color;
-    ctx.fillText(text, 35, i*(h+10) + h/2);
+    ctx.fillText(text, 40, i*(h+10) + h/2 + 5);
   }.bind(this));
   ctx.restore();
+}
+
+Chart.prototype.toRgb = function(hex) {
+  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+  } : null;
 }
 
 function drawRoundRect (ctx, x, y , w, h) {
@@ -1292,139 +1329,23 @@ function drawRoundRect (ctx, x, y , w, h) {
 module.exports = Chart;
 
 });
-require.register("livechart/lib/item.js", function(exports, require, module){
-var Tween = require ('tween');
-var Emitter = require ('emitter');
-
-function Item(value){
-  this.value = value;
-}
-
-Emitter(Item.prototype);
-
-Item.prototype.position = function(x, y){
-  if (typeof this.x === 'undefined') {
-    this.x = x;
-    this.y = y;
-    return;
-  }
-  var tween = this.tween = Tween({x:this.x, y:this.y })
-    .ease('in-out-quad')
-    .to({x:x, y:y})
-    .duration(500);
-
-  var self = this;
-
-  tween.update(function(o){
-    self.x = o.x;
-    self.y = o.y;
-  });
-
-  tween.on('end', function(){
-    self.emit('end');
-    self.tween = null;
-  });
-}
-
-Item.prototype.angle = function(a){
-  if (typeof this.a === 'undefined') {
-    this.a = 0;
-  }
-  var tween = this.tween = Tween({a: this.a})
-    .ease('in-out-quad')
-    .to({a: a})
-    .duration(500);
-
-  var self = this;
-
-  tween.update(function(o){
-    self.a = o.a;
-  });
-
-  tween.on('end', function(){
-    self.emit('end');
-    self.tween = null;
-  });
-}
-
-Item.prototype.onFrame = function() {
-  if (this.tween) {
-    this.tween.update();
-  }
-}
-
-module.exports = Item;
-
-});
-require.register("livechart/lib/label.js", function(exports, require, module){
-var Tween = require ('tween');
-
-function Label(){
-  this.items = [];
-  this.delta = 0;
-}
-
-Label.prototype.add = function(text){
-  this.items.push({
-    label: text,
-    count: 0
-  })
-}
-
-Label.prototype.last = function(){
-  if (this.items.length === 0) return;
-  return this.items[this.items.length - 1];
-}
-
-Label.prototype.shift = function(){
-  this.items.shift();
-}
-
-Label.prototype.move = function(d){
-  var tween = this.tween = Tween({delta: 0})
-    .ease('in-out-quad')
-    .to({delta: d})
-    .duration(500);
-
-  var self = this;
-
-  tween.update(function(o){
-    self.delta = o.delta;
-  });
-
-  tween.on('end', function(){
-    self.tween = null;
-    self.delta = 0;
-    self.items.forEach(function(item) {
-      item.count += 1;
-    })
-  });
-}
-
-Label.prototype.onFrame = function() {
-  if (this.tween) {
-    this.tween.update();
-  }
-}
-
-module.exports = Label;
-
-});
 require.register("livechart/lib/barchart.js", function(exports, require, module){
-var Item = require ('./item');
 var min = require ('min');
 var max = require ('max');
 var inherit = require('inherit');
 var Chart = require ('./chart');
+var style = require ('style');
 
-var pl = 20;
-var pb = 20;
+var pl = parseInt(style('.livechart .barchart', 'padding-left'), 10);
+var pr = parseInt(style('.livechart .barchart', 'padding-right'), 10);
+var pb = parseInt(style('.livechart .barchart', 'padding-bottom'), 10);
+var pt = parseInt(style('.livechart .barchart', 'padding-top'), 10);
+var columnWidth = parseInt(style('.livechart .barchart .item', 'width'), 10);
 
 function BarChart(parent){
   Chart.call(this, parent);
   this.set('max', 100);
   this.set('min', 0);
-  this.set('columnWidth', 10);
   this.set('format', function (v) { return v; });
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);
   this.bars = [];
@@ -1432,37 +1353,51 @@ function BarChart(parent){
 
 inherit(BarChart, Chart);
 
-BarChart.prototype.add = function(vs){
-  var bars = this.bars;
-  var init = (this.bars.length === 0);
-  if (init) {
-    vs.forEach(function(v, i) {
-      var item = new Item(v);
-      item.index = i;
-      bars.push(item)
-    })
-  }
-  else {
-    bars.forEach(function(item) {
-      var v = vs[item.index];
-      item.value = v;
-    })
-  }
+BarChart.prototype.getRange = function(){
   var minValue = min(this.bars, 'value');
   var maxValue = max(this.bars, 'value');
   minValue = Math.min(minValue, this.get('min'));
   maxValue = Math.max(maxValue, this.get('max'));
   this.set('min', minValue);
   this.set('max', maxValue);
+  return {
+    min: minValue,
+    max: maxValue
+  }
+}
+
+BarChart.prototype.add = function(vs){
+  var bars = this.bars;
+  var init = (this.bars.length === 0);
+  if (init) {
+    vs.forEach(function(v, i) {
+      bars.push({
+        value: v,
+        index: i
+      });
+    })
+  }
+  else {
+    bars.forEach(function(bar) {
+      var v = vs[bar.index];
+      bar.value = v;
+    })
+  }
+  var r = this.getRange();
   this.bars = this.bars.sort(function(a, b) {
     return b.value - a.value;
   })
   var space = this.getSpace();
-  this.bars.forEach(function(item, i) {
-    var x= (i + 1) * space;
-    var y = 0 - (this.height - pb - 25) * (item.value - minValue)/(maxValue - minValue);
-    if (init) item.position(x, 0);
-    item.position(x, y);
+  this.bars.forEach(function(bar, i) {
+    var tx= (i + 1) * space;
+    var ty = 0 - (this.height - pb - pt) * (bar.value - r.min)/(r.max - r.min);
+    bar.onFrame = this.tween({
+      x: bar.x || tx,
+      y: bar.y || 0
+    }, {
+      x: tx,
+      y: ty
+    })
   }.bind(this));
   this.start();
 }
@@ -1472,14 +1407,13 @@ BarChart.prototype.getSpace = function(){
   return (this.width - pl)/(count + 1);
 }
 
-BarChart.prototype.draw = function() {
+BarChart.prototype.draw = function(delta) {
   this.bars.forEach(function(item) {
-    item.onFrame();
+    item.onFrame(delta);
   })
   var fontColor = this.styles.color;
   var colors = this.get('colors');
   var labels = this.get('labels');
-  var cw = this.get('columnWidth');
   var ctx = this.ctx;
   var format = this.get('format');
   ctx.font = this.styles.fontSize + ' helvetica';
@@ -1489,29 +1423,31 @@ BarChart.prototype.draw = function() {
   this.bars.forEach(function(item) {
     var i = item.index;
     ctx.fillStyle = colors[i];
-    ctx.fillRect(item.x - cw/2, item.y, cw, 0 - item.y);
+    ctx.fillRect(item.x - columnWidth/2, item.y, columnWidth, 0 - item.y);
     //label
     ctx.fillStyle = fontColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     var label = labels[i];
-    ctx.fillText(label, item.x, 8);
+    ctx.fillText(label, item.x, 4);
     //value
     ctx.textBaseline = 'bottom';
     var v = format(item.value);
-    ctx.fillText(v, item.x, item.y - 5);
+    ctx.fillText(v, item.x, item.y - 4);
   })
-  //title
-  var title = this.get('title');
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'center';
-  ctx.fillText(title, (this.width - pl)/2, - this.height + pb);
   //bottom line
   ctx.strokeStyle = fontColor;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(this.width - pl, 0);
+  ctx.lineTo(this.width - pl - pr, 0);
   ctx.stroke();
+  //title
+  var title = this.get('title');
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = this.styles.titleColor;
+  ctx.font = this.styles.titleSize + ' helvetica';
+  ctx.fillText(title, (this.width - pl -pr)/2, - this.height + pb + 5);
   ctx.restore();
 }
 
@@ -1519,7 +1455,6 @@ module.exports = BarChart;
 
 });
 require.register("livechart/lib/piechart.js", function(exports, require, module){
-var Item = require ('./item');
 var min = require ('min');
 var max = require ('max');
 var inherit = require('inherit');
@@ -1527,7 +1462,6 @@ var Chart = require ('./chart');
 
 function PieChart(parent){
   Chart.call(this, parent);
-  this.set('format', function (v) { return v; });
   this.set('colors', ['#F38630', '#E0E4CC', '#69D2E7', '#9D9B7F', '#F7464A', '#584A5E']);
   this.items = [];
 }
@@ -1542,22 +1476,25 @@ PieChart.prototype.add = function(vs){
   }, 0);
   vs.forEach(function(v, i) {
     if (init) {
-      var item = new Item(v/total);
-      items.push(item)
+      items.push({ value: v/total });
     } else {
       items[i].value = v/total;
     }
   });
   this.items.forEach(function(item, i) {
     var a = item.value * Math.PI * 2;
-    item.angle(a);
+    item.onFrame = this.tween({
+      a: item.a || 0
+    }, {
+      a: a
+    })
   }.bind(this));
   this.start();
 }
 
-PieChart.prototype.draw = function() {
+PieChart.prototype.draw = function(delta) {
   this.items.forEach(function(item) {
-    item.onFrame();
+    item.onFrame(delta);
   })
   var fontColor = this.styles.color;
   var colors = this.get('colors');
@@ -1609,16 +1546,22 @@ module.exports = PieChart;
 
 });
 require.register("livechart/lib/linechart.js", function(exports, require, module){
-var Point = require ('./item');
 var min = require ('min');
 var max = require ('max');
 var inherit = require('inherit');
 var Chart = require ('./chart');
+var style = require ('style');
 
+var pl = parseInt(style('.livechart .linechart', 'padding-left'), 10);
+var pr = parseInt(style('.livechart .linechart', 'padding-right'), 10);
+var pb = parseInt(style('.livechart .linechart', 'padding-bottom'), 10);
+var pt = parseInt(style('.livechart .linechart', 'padding-top'), 10);
+var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);
 
 function LineChart(parent){
   Chart.call(this, parent);
   this.set('count', 5);
+  this.set('colors', ['#F7464A', '#4A46F7']);
 }
 
 inherit(LineChart, Chart);
@@ -1631,8 +1574,9 @@ LineChart.prototype.add = function(v){
     });
   }
   v.forEach(function(d, i) {
-    var point = new Point(d);
-    this.series[i].push(point);
+    this.series[i].push({
+      value: d
+    });
   }.bind(this));
   var count = this.get('count');
   if (this.series[0].length > count + 1) {
@@ -1642,25 +1586,32 @@ LineChart.prototype.add = function(v){
   }
   var space = this.getSpace();
   this.series.forEach(function(ps) {
-    for (var i = ps.length - 1; i >= 0; i-- ) {
-      var p = ps[i];
+    ps.forEach(function(p, i) {
       var v = p.value;
-      var y = this.getHeight(v, ps);
-      p.position((i + count - ps.length) * space, this.getHeight(v, ps));
-    }
-  }.bind(this))
+      var ty = this.getY(v, ps);
+      var tx = (i + count - ps.length) * space;
+      if (!p.x) {
+        p.x = tx;
+        p.y = ty;
+        p.onFrame = function(){};
+      } else {
+        p.onFrame = this.tween({ x: p.x, y: p.y }, { x: tx, y: ty });
+      }
+    }.bind(this));
+  }.bind(this));
   this.start();
 }
 
 LineChart.prototype.getSpace = function(){
-   return (this.width - 40)/(this.get('count') - 1);
+   return (this.width - pl - pr)/(this.get('count') - 1);
 }
 
-LineChart.prototype.getHeight = function(v, ps){
+LineChart.prototype.getY = function(v, ps){
   var minValue = min(ps, 'value');
   var maxValue = max(ps, 'value');
-  if (minValue == maxValue) return - (this.height - 55)/2;
-  var y = 0 - (this.height - 55) * (v - minValue)/(maxValue - minValue) -10;
+  var h = this.height - pb -2*pt;
+  if (minValue == maxValue) return - h/2;
+  var y = 0 - h * (v - minValue)/(maxValue - minValue);
   return y;
 }
 
@@ -1693,10 +1644,10 @@ LineChart.prototype.drawLine = function(ps, i) {
   ctx.stroke();
 }
 
-LineChart.prototype.draw = function() {
+LineChart.prototype.draw = function(delta) {
   this.series.forEach(function(ps) {
     ps.forEach(function(p) {
-      p.onFrame();
+      p.onFrame(delta);
     });
   })
   var count = this.get('count');
@@ -1705,7 +1656,7 @@ LineChart.prototype.draw = function() {
   ctx.save();
   this.drawLabels();
   ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.translate(25, -25);
+  ctx.translate(pl, -pb);
   ctx.textAlign = 'center';
   ctx.fillStyle = this.styles.color;
   ctx.strokeStyle = this.styles.color;
@@ -1723,18 +1674,20 @@ LineChart.prototype.draw = function() {
   }
   //bottom line
   ctx.beginPath();
-  ctx.moveTo(-20, 10);
-  ctx.lineTo(this.width - 35 , 10);
+  var ly = pb - 15;
+  var lx = - (pl - 5);
+  ctx.moveTo(lx, ly);
+  ctx.lineTo(this.width - pl - 5 , ly);
   ctx.stroke();
   var space = this.getSpace();
   ctx.textBaseline = 'top';
   for (var i = 0; i < count; i++) {
     var x = i * space;
     ctx.beginPath();
-    ctx.moveTo(x, 10);
-    ctx.lineTo(x , 12);
+    ctx.moveTo(x, ly);
+    ctx.lineTo(x , ly + 2);
     ctx.stroke();
-    ctx.fillText((count - 1 - i) , x, 12);
+    ctx.fillText((count - 1 - i) , x, ly + 2);
   }
   this.series.forEach(function(ps, i) {
     //line
@@ -1742,7 +1695,7 @@ LineChart.prototype.draw = function() {
     //point
     ps.forEach(function(p) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 3, 0, Math.PI*2, false);
+      ctx.arc(p.x, p.y, radius, 0, Math.PI*2, false);
       ctx.fill();
     });
   }.bind(this));
@@ -1752,83 +1705,466 @@ LineChart.prototype.draw = function() {
 module.exports = LineChart;
 
 });
-require.register("livechart/lib/arcchart.js", function(exports, require, module){
+require.register("livechart/lib/areachart.js", function(exports, require, module){
+var min = require ('min');
+var max = require ('max');
 var inherit = require('inherit');
+var Chart = require ('./chart');
+var style = require ('style');
 
-function ArcChart (argument) {
+var pl = parseInt(style('.livechart .linechart', 'padding-left'), 10);
+var pr = parseInt(style('.livechart .linechart', 'padding-right'), 10);
+var pb = parseInt(style('.livechart .linechart', 'padding-bottom'), 10);
+var pt = parseInt(style('.livechart .linechart', 'padding-top'), 10);
+var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);
 
+function AreaChart(parent){
+  Chart.call(this, parent);
+  this.set('count', 10);
+  this.set('colors', ['#DCDCDC', '#97BBCD']);
+}
+
+inherit(AreaChart, Chart);
+
+AreaChart.prototype.add = function(v){
+  v = ( v instanceof Array)? v : [v];
+  if (!this.series) {
+    this.series = v.map(function() {
+      return [];
+    });
+  }
+  v.forEach(function(d, i) {
+    this.series[i].push({
+      value: d
+    });
+  }.bind(this));
+  var count = this.get('count');
+  if (this.series[0].length > count + 1) {
+    this.series.forEach(function(ps) {
+      ps.shift();
+    });
+  }
+  var space = this.getSpace();
+  this.series.forEach(function(ps) {
+    ps.forEach(function(p, i) {
+      var v = p.value;
+      var tx = (i + count - ps.length) * space;
+      var ty = this.getY(v, ps);
+      if (!p.x) {
+        p.x = tx;
+        p.y = ty;
+        p.onFrame = function(){};
+      } else {
+        p.onFrame = this.tween({ x: p.x, y: p.y }, { x: tx, y: ty });
+      }
+    }.bind(this));
+  }.bind(this))
+  this.start();
+}
+
+AreaChart.prototype.getSpace = function(){
+   return (this.width - pl - pr)/(this.get('count') - 1);
+}
+
+AreaChart.prototype.getY = function(v, ps){
+  var minValue = min(ps, 'value');
+  var maxValue = max(ps, 'value');
+  var h = this.height - pb -2*pt;
+  if (minValue == maxValue) return - h/2;
+  var y = 0 - h * (v - minValue)/(maxValue - minValue);
+  return y;
+}
+
+AreaChart.prototype.drawValues = function(p1, p2) {
+  var ctx = this.ctx;
+  ctx.textBaseline = 'bottom';
+  var top = p1.y <= p2.y ? p1 : p2;
+  var bottom = p1.y > p2.y ? p1 : p2;
+  ctx.fillText(top.value, top.x, top.y - 5);
+  ctx.textBaseline = 'top';
+  ctx.fillText(bottom.value, bottom.x, bottom.y + 5);
+}
+
+AreaChart.prototype.drawLine = function(ps, i) {
+  var ctx = this.ctx;
+  var color = this.get('colors')[i];
+  var rgb = this.toRgb(color);
+  ctx.fillStyle = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b +', 0.5)';
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  //ctx.shadowColor = 'rgb(153,153,153)';
+  //ctx.shadowOffsetY = 1;
+  //ctx.shadowBlur = 10;
+  ctx.lineWidth = 2;
+  var space = this.getSpace();
+  ps.forEach(function(p, i) {
+    if (i === 0) {
+      ctx.moveTo(p.x, p.y);
+    } else {
+      var prev = ps[i - 1];
+      if (p.x - prev.x < space/2) {
+        ctx.lineTo(p.x, p.y);
+      } else{
+        ctx.bezierCurveTo(prev.x + space/2, prev.y, prev.x + space/2, p.y, p.x, p.y);
+      }
+    }
+  })
+  ctx.stroke();
+  ctx.lineTo(ps[ps.length - 1].x, 20);
+  ctx.lineTo(ps[0].x, 20);
+  ctx.fill();
+}
+
+AreaChart.prototype.draw = function(delta) {
+  this.series.forEach(function(ps) {
+    ps.forEach(function(p) {
+      p.onFrame(delta);
+    });
+  })
+  var count = this.get('count');
+  var ctx = this.ctx;
+  ctx.clearRect(0, - this.height, this.width, this.height);
+  ctx.save();
+  this.drawLabels();
+  ctx.font = this.styles.fontSize + ' helvetica';
+  ctx.translate(pl, -pb);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = this.styles.color;
+  ctx.strokeStyle = this.styles.color;
+  if (this.series.length > 1) {
+    this.series[0].forEach(function(p1, i) {
+      var p2 = this.series[1][i];
+      this.drawValues(p1, p2);
+    }.bind(this));
+  } else {
+    var ps = this.series[0];
+    ps.forEach(function(p) {
+      var v = p.value;
+      ctx.fillText(v, p.x, p.y - 5);
+    })
+  }
+  //bottom line
+  ctx.beginPath();
+  var ly = pb - 15;
+  var lx = - (pl - 5);
+  ctx.moveTo(lx, ly);
+  ctx.lineTo(this.width - pl - 5 , ly);
+  ctx.stroke();
+  var space = this.getSpace();
+  ctx.textBaseline = 'top';
+  for (var i = 0; i < count; i++) {
+    var x = i * space;
+    ctx.beginPath();
+    ctx.moveTo(x, ly);
+    ctx.lineTo(x , ly + 2);
+    ctx.stroke();
+    ctx.fillText((count - 1 - i) , x, ly + 2);
+  }
+  this.series.forEach(function(ps, i) {
+    //line
+    this.drawLine(ps, i);
+    var color = this.get('colors')[i];
+    ctx.fillStyle = color;
+    //point
+    ps.forEach(function(p) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI*2, false);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.arc(p.x, p.y, radius + 1, 0, Math.PI*2, false);
+      ctx.stroke();
+    });
+  }.bind(this));
+  ctx.restore();
+}
+
+module.exports = AreaChart;
+
+});
+require.register("livechart/lib/arcchart.js", function(exports, require, module){
+var min = require ('min');
+var max = require ('max');
+var inherit = require('inherit');
+var Chart = require ('./chart');
+
+function ArcChart(parent){
+  Chart.call(this, parent);
+  this.set('colors', ['#97BBCD', '#DCDCDC']);
+  this.items = [];
+}
+
+inherit(ArcChart, Chart);
+
+ArcChart.prototype.add = function(vs){
+  if (typeof vs === 'number') vs = [vs];
+  var items = this.items;
+  var init = (items.length === 0);
+  vs.forEach(function(v, i) {
+    if (init) {
+      items.push({ value: v })
+    } else {
+      items[i].value = v;
+    }
+  });
+  this.items.forEach(function(item, i) {
+    var a = item.value * Math.PI * 2;
+    item.onFrame = this.tween({
+      a: item.a || 0
+    }, {
+      a: a
+    })
+  }.bind(this));
+  this.start();
+}
+
+ArcChart.prototype.draw = function(delta) {
+  this.items.forEach(function(item) {
+    item.onFrame(delta);
+  })
+  var fontColor = this.styles.color;
+  var colors = this.get('colors');
+  var w = Math.min(this.width, this.height);
+  var radius = (w - 10)/2;
+  var tx = (this.width - w)/2 + w/2;
+  var ty = (this.height - w)/2 + w/2;
+  var ctx = this.ctx;
+  ctx.font = this.styles.fontSize + ' helvetica';
+  ctx.clearRect(0, - this.height, this.width, this.height);
+  ctx.save();
+  ctx.translate(tx, - ty);
+  var width = 10;
+  var gap = 5;
+  this.items.forEach(function(item, i) {
+    var a = item.a;
+    var r = radius - (width + gap)*i;
+    var color = colors[i];
+    var rgb = this.toRgb(color);
+    ctx.fillStyle = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b +', ' + item.value + ')';
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, - (r - width));
+    ctx.lineTo(0 , - r);
+    ctx.arc(0, 0, r, - Math.PI/2, a - Math.PI/2, false);
+    ctx.lineTo((r - width)*Math.cos(a - Math.PI/2), (r - width)*Math.sin(a - Math.PI/2));
+    ctx.arc(0, 0, r - width, a - Math.PI/2, - Math.PI/2, true);
+    ctx.fill();
+    ctx.stroke();
+  }.bind(this));
+  //draw text
+  ctx.font = '20px helvetica';
+  if (this.items.length === 1) {
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = colors[0];
+    ctx.fillText((this.items[0].value*100).toFixed(1), 0, 0);
+  } else {
+    ctx.strokeStyle = '#eeeeee';
+    ctx.beginPath();
+    ctx.moveTo(15, - 15);
+    ctx.lineTo(- 15, 15);
+    ctx.stroke();
+    this.items.forEach(function(item, i) {
+      ctx.fillStyle = colors[i];
+      var text = (item.value * 100).toFixed(1);
+      if (i === 0) {
+        ctx.textBaseline = 'bottom';
+        ctx.textAlign = 'right';
+        ctx.fillText(text, 0 , 0);
+      } else {
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillText(text, 0, 0);
+      }
+    })
+  }
+  this.drawLabels();
+  ctx.restore();
 }
 
 module.exports = ArcChart;
 
 });
-require.register("livechart/lib/histogram.js", function(exports, require, module){
-var Item = require ('./item');
+require.register("livechart/lib/polarchart.js", function(exports, require, module){
 var min = require ('min');
 var max = require ('max');
 var inherit = require('inherit');
 var Chart = require ('./chart');
-var Label = require ('./label')
+var style = require ('style');
 
-var pl = 40;
-var pb = 30;
+var fontSize = style('.livechart .polarchart .label', 'font-size');
+var color = style('.livechart .polarchart .label', 'color');
+var steps = [20, 40, 60, 80, 100];
+
+function PolarChart(parent){
+  Chart.call(this, parent);
+  this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);
+  this.items = [];
+}
+
+inherit(PolarChart, Chart);
+
+PolarChart.prototype.add = function(vs){
+  var items = this.items;
+  var init = (items.length === 0);
+  vs.forEach(function(v, i) {
+    if (init) { items.push({ r: 0 }) }
+    items[i].onFrame = this.tween({
+      r: items[i].r
+    }, {
+      r: v
+    });
+  }.bind(this));
+  this.start();
+}
+
+PolarChart.prototype.draw = function(delta) {
+  this.items.forEach(function(item) {
+    item.onFrame(delta);
+  })
+  var fontColor = this.styles.color;
+  var colors = this.get('colors');
+  var stepAngle = Math.PI * 2/this.items.length;
+  var w = Math.min(this.width, this.height);
+  var radius = (w - 10)/2;
+  var tx = (this.width - w)/2 + w/2;
+  var ty = (this.height - w)/2 + w/2;
+  var ctx = this.ctx;
+  ctx.font = this.styles.fontSize + ' helvetica';
+  ctx.clearRect(0, - this.height, this.width, this.height);
+  ctx.save();
+  ctx.translate(tx, - ty);
+  ctx.lineWidth = 1;
+  ctx.rotate(- Math.PI/2);
+  ctx.strokeStyle = '#ffffff';
+  this.items.forEach(function(item, i) {
+    var r = item.r;
+    var rgb = this.toRgb(colors[i]);
+    ctx.fillStyle = 'rgba(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ', 0.9)';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radius, 0);
+    ctx.arc(0, 0, radius * r, 0, stepAngle, false);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radius, 0);
+    ctx.stroke();
+    ctx.rotate(stepAngle);
+  }.bind(this));
+  //draw circles
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+  steps.forEach(function(v) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * v/100, 0, Math.PI*2, false);
+    ctx.stroke();
+  })
+  ctx.rotate(Math.PI/2);
+  //draw text
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.font = fontSize + ' helvetica';
+  var size = parseInt(fontSize, 10);
+  steps.forEach(function(t) {
+    var w = ctx.measureText(t).width;
+    var y = - radius*t/100;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.fillRect(- w/2 - 2, y - size/2 -2, w + 4, size + 4);
+    ctx.fillStyle = color;
+    ctx.fillText(t, 0, y);
+  })
+  this.drawLabels();
+  ctx.restore();
+}
+
+module.exports = PolarChart;
+
+});
+require.register("livechart/lib/histogram.js", function(exports, require, module){
+var min = require ('min');
+var max = require ('max');
+var inherit = require('inherit');
+var Chart = require ('./chart');
+var style = require ('style');
+
+var pl = parseInt(style('.livechart .histogram', 'padding-left'), 10);
+var pr = parseInt(style('.livechart .histogram', 'padding-right'), 10);
+var pb = parseInt(style('.livechart .histogram', 'padding-bottom'), 10);
+var pt = parseInt(style('.livechart .histogram', 'padding-top'), 10);
 
 function Histogram(parent){
   Chart.call(this, parent);
   this.set('count', 50);
   this.set('max', 100);
   this.set('min', 0);
+  this.set('colors', ['#69D2E7']);
   this.bars = [];
-  this.label = new Label();
+  this.labels = [];
 }
 
 inherit(Histogram, Chart);
 
-Histogram.prototype.add = function(v){
-  var bars = this.bars;
-  var bar = new Item(v);
-  var count = this.get('count');
-  bars.push(bar)
-  if (bars.length > count) {
-    bars.shift();
-  }
+Histogram.prototype.getRange = function(){
   var minValue = min(this.bars, 'value');
   var maxValue = max(this.bars, 'value');
   minValue = Math.min(minValue, this.get('min'));
   maxValue = Math.max(maxValue, this.get('max'));
   this.set('min', minValue);
   this.set('max', maxValue);
-  var space = this.getSpace();
-  for (var i = bars.length - 1; i >= 0; i-- ) {
-    var p = bars[i];
-    var y = 0 - (this.height - pb) * (p.value - minValue)/(maxValue - minValue);
-    var x= (i + count - bars.length) * space;
-    p.position(x, y);
+  return {
+    min: minValue,
+    max: maxValue
   }
+}
+
+Histogram.prototype.add = function(v){
+  var bars = this.bars;
+  var bar = { value: v };
+  var count = this.get('count');
+  bars.push(bar)
+  if (bars.length > count) {
+    bars.shift();
+  }
+  var r = this.getRange();
+  var space = this.getSpace();
+  bars.forEach(function(bar, i) {
+    var ty = 0 - (this.height - pb - pt) * (bar.value - r.min)/(r.max - r.min);
+    var tx= (i + count - bars.length) * space;
+    if (!bar.x) {
+      bar.x = tx;
+      bar.y = ty;
+      bar.onFrame = function() { }
+    } else {
+      bar.onFrame = this.tween({ x: bar.x, y: bar.y }, { x: tx, y: ty });
+    }
+  }.bind(this));
   var ctx = this.ctx;
   ctx.font = this.styles.fontSize + ' helvetica';
-  var dw = ctx.measureText('00:00:00').width + 10;
-  var s = currentTime();
-  var last = this.label.last();
-  if (!last) {
-    this.label.add(s);
-  } else {
-    var w = space * last.count - space*3/4;
-    if (w > dw) {
-      this.label.add(s);
-    }
-    var first = this.label.items[0];
-    var fx = (this.width - pl) - space * first.count + space*3/4;
-    if(fx < 0 ) this.label.shift();
-  }
   var d = this.getSpace();
+  var dw = ctx.measureText('00:00:00').width + 5;
+  var first = this.labels[0];
+  var last = this.labels[this.labels.length - 1];
+  var tw = this.width - pl - pr - space * 1/4;
+  if(first && first.x <= d) this.labels.shift();
+  this.labels.forEach(function(label) {
+    var x = label.x;
+    label.onFrame = this.tween({x: x}, {x: x - d});
+  }.bind(this));
+  if (this.labels.length === 0 || (last && (tw - last.x >= dw))) {
+    var s = currentTime();
+    this.labels.push({
+      text: s ,
+      x: tw,
+      onFrame: function(){ }
+    });
+  }
   this.start();
-  this.label.move(d);
 }
 
 Histogram.prototype.getSpace = function(){
   var c = this.get('count');
-  return 2 * (this.width - pl)/(c * 2 - 1);
+  return 2 * (this.width - pl - pr)/(c * 2 - 1);
 }
 
 function pad (v) {
@@ -1849,27 +2185,27 @@ function labelFormat (v) {
 
 Histogram.prototype.drawLabels = function() {
   var ctx = this.ctx;
-  var items = this.label.items;
   var space = this.getSpace();
-  var delta = this.label.delta;
   ctx.strokeStyle = this.styles.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillStyle = this.styles.color;
-  items.forEach(function(item) {
-    var x = (this.width - pl) - space * item.count - delta + space*3/4;
+  this.labels.forEach(function(label) {
+    var x = label.x;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, 5);
     ctx.stroke();
-    ctx.fillText(item.label, x, 8);
+    ctx.fillText(label.text, x, 8);
   }.bind(this));
 }
 
-Histogram.prototype.draw = function() {
-  this.label.onFrame();
-  this.bars.forEach(function(item) {
-    item.onFrame();
+Histogram.prototype.draw = function(delta) {
+  this.labels.forEach(function(label) {
+    label.onFrame(delta);
+  })
+  this.bars.forEach(function(bar) {
+    bar.onFrame(delta);
   })
   var count = this.get('count');
   var color = this.get('colors')[0];
@@ -1891,12 +2227,12 @@ Histogram.prototype.draw = function() {
   var max = this.get('max');
   ctx.fillText(labelFormat(min), -2, 0);
   ctx.textBaseline = 'top';
-  ctx.fillText(labelFormat(max), -2 , pb - this.height);
+  ctx.fillText(labelFormat(max), -2 , pb + pt - this.height);
   //bottom line
   ctx.strokeStyle = this.styles.color;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(this.width - pl, 0);
+  ctx.lineTo(this.width - pl - 5 , 0);
   ctx.stroke();
   this.drawLabels();
   ctx.restore();
