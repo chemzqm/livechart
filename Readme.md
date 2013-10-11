@@ -1,7 +1,7 @@
 
 # livechart
 
-  Simple linechart with livedata
+  Canvas chart for display data with animatiion.
 
 ## Installation
 
