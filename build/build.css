@@ -1,0 +1,168 @@
+/**
+ * disable selection.
+ */
+
+.resizable {
+  user-select: none;
+}
+
+/**
+ * basic stuff.
+ */
+
+.resizable .resizable-handle {
+  position: absolute;
+}
+
+/**
+ * n,
+ * s
+ */
+
+.resizable .resizable-n,
+.resizable .resizable-s {
+  cursor: ns-resize;
+  height: 8px;
+  left: 8px;
+  right: 8px;
+}
+
+.resizable .resizable-n { top: -5px; }
+.resizable .resizable-s { bottom: -5px; }
+
+/**
+ * e,
+ * w
+ */
+
+.resizable .resizable-e,
+.resizable .resizable-w {
+  cursor: ew-resize;
+  width: 8px;
+  top: 8px;
+  bottom: 8px;
+}
+
+.resizable .resizable-e { right: -5px; }
+.resizable .resizable-w { left: -5px; }
+
+/**
+ * se,
+ * ne,
+ * sw,
+ * nw
+ */
+
+.resizable .resizable-se,
+.resizable .resizable-ne,
+.resizable .resizable-sw,
+.resizable .resizable-nw {
+  width: 10px;
+  height: 10px;
+}
+
+/**
+ * se,
+ * sw
+ */
+
+.resizable .resizable-sw,
+.resizable .resizable-se {
+  bottom: -5px;
+}
+
+/**
+ * ne,
+ * nw
+ */
+
+.resizable .resizable-ne,
+.resizable .resizable-nw {
+  top: -5px;
+}
+
+/**
+ * ne,
+ * se
+ */
+
+.resizable .resizable-se,
+.resizable .resizable-ne {
+  right: -5px;
+}
+
+/**
+ * sw,
+ * nw
+ */
+
+.resizable .resizable-sw,
+.resizable .resizable-nw {
+  left: -5px;
+}
+
+/**
+ * se,
+ * nw
+ */
+
+.resizable .resizable-se,
+.resizable .resizable-nw {
+  cursor: nwse-resize;
+}
+
+/**
+ * sw,
+ * ne
+ */
+
+.resizable .resizable-sw,
+.resizable .resizable-ne {
+  cursor: nesw-resize;
+}
+
+
+.livechart .point {
+  color: #E00000;
+}
+
+.livechart .text {
+  color: #999999;
+  font-size: 10px;
+}
+
+.livechart .title {
+  font-size: 14px;
+  color: #999999;
+}
+
+.livechart .linechart {
+  padding-left: 25px;
+  padding-right: 10px;
+  padding-bottom: 35px;
+  padding-top: 10px;
+  border-radius: 3px;
+}
+
+.livechart .histogram {
+  padding-left: 50px;
+  padding-bottom: 30px;
+  padding-top: 5px;
+  padding-right: 10px;
+}
+
+.livechart .barchart {
+  padding-left: 10px;
+  padding-bottom: 20px;
+  padding-top: 25px;
+  padding-right: 10px;
+}
+
+.livechart .barchart .item {
+  width: 10px;
+}
+
+.livechart .polarchart .label {
+  font-size: 10px;
+  color: #666666;
+}
