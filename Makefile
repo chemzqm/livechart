@@ -1,7 +1,7 @@
 SRC = $(wildcard lib/*.js)
 
 build: components index.js $(SRC) livechart.css
-	@component build --dev
+	@component build
 	@touch build
 
 start:
