@@ -21,7 +21,8 @@
     "chemzqm/highlight.js": "*",
     "ui-component/resizable": "*",
     "component/scroll-to": "*",
-    "component/ease": "*"
+    "component/ease": "*",
+    "esundahl/museo-sans": "*"
   },
   "license": "MIT",
   "main": "index.js",
