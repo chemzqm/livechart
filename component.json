@@ -20,6 +20,7 @@
   "development": {
     "chemzqm/highlight.js": "*",
     "ui-component/resizable": "*",
+    "component/scroll-to": "*",
     "component/ease": "*"
   },
   "license": "MIT",
