@@ -439,12 +439,20 @@ module.exports = function(arr, fn){\n\
 ));
 require.register("component-raf/index.js", Function("exports, require, module",
 "\n\
-module.exports = window.requestAnimationFrame\n\
+/**\n\
+ * Expose `requestAnimationFrame()`.\n\
+ */\n\
+\n\
+exports = module.exports = window.requestAnimationFrame\n\
   || window.webkitRequestAnimationFrame\n\
   || window.mozRequestAnimationFrame\n\
   || window.oRequestAnimationFrame\n\
   || window.msRequestAnimationFrame\n\
   || fallback;\n\
+\n\
+/**\n\
+ * Fallback implementation.\n\
+ */\n\
 \n\
 var prev = new Date().getTime();\n\
 function fallback(fn) {\n\
@@ -453,6 +461,20 @@ function fallback(fn) {\n\
   setTimeout(fn, ms);\n\
   prev = curr;\n\
 }\n\
+\n\
+/**\n\
+ * Cancel.\n\
+ */\n\
+\n\
+var cancel = window.cancelAnimationFrame\n\
+  || window.webkitCancelAnimationFrame\n\
+  || window.mozCancelAnimationFrame\n\
+  || window.oCancelAnimationFrame\n\
+  || window.msCancelAnimationFrame;\n\
+\n\
+exports.cancel = function(id){\n\
+  cancel.call(window, id);\n\
+};\n\
 //@ sourceURL=component-raf/index.js"
 ));
 require.register("component-tween/index.js", Function("exports, require, module",
@@ -6538,8 +6560,6 @@ function scroll() {\n\
 ));
 require.register("component-ease/index.js", Function("exports, require, module",
 "\n\
-// easing functions from \"Tween.js\"\n\
-\n\
 exports.linear = function(n){\n\
   return n;\n\
 };\n\
@@ -6678,34 +6698,6 @@ exports.inOutBounce = function(n){\n\
   return exports.outBounce(n * 2 - 1) * .5 + .5;\n\
 };\n\
 \n\
-exports.inElastic = function(n){\n\
-  var s, a = 0.1, p = 0.4;\n\
-  if ( n === 0 ) return 0;\n\
-  if ( n === 1 ) return 1;\n\
-  if ( !a || a < 1 ) { a = 1; s = p / 4; }\n\
-  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );\n\
-  return - ( a * Math.pow( 2, 10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) );\n\
-};\n\
-\n\
-exports.outElastic = function(n){\n\
-  var s, a = 0.1, p = 0.4;\n\
-  if ( n === 0 ) return 0;\n\
-  if ( n === 1 ) return 1;\n\
-  if ( !a || a < 1 ) { a = 1; s = p / 4; }\n\
-  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );\n\
-  return ( a * Math.pow( 2, - 10 * n) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) + 1 );\n\
-};\n\
-\n\
-exports.inOutElastic = function(n){\n\
-  var s, a = 0.1, p = 0.4;\n\
-  if ( n === 0 ) return 0;\n\
-  if ( n === 1 ) return 1;\n\
-  if ( !a || a < 1 ) { a = 1; s = p / 4; }\n\
-  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );\n\
-  if ( ( n *= 2 ) < 1 ) return - 0.5 * ( a * Math.pow( 2, 10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) );\n\
-  return a * Math.pow( 2, -10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) * 0.5 + 1;\n\
-};\n\
-\n\
 // aliases\n\
 \n\
 exports['in-quad'] = exports.inQuad;\n\
@@ -6735,9 +6727,6 @@ exports['in-out-back'] = exports.inOutBack;\n\
 exports['in-bounce'] = exports.inBounce;\n\
 exports['out-bounce'] = exports.outBounce;\n\
 exports['in-out-bounce'] = exports.inOutBounce;\n\
-exports['in-elastic'] = exports.inElastic;\n\
-exports['out-elastic'] = exports.outElastic;\n\
-exports['in-out-elastic'] = exports.inOutElastic;\n\
 //@ sourceURL=component-ease/index.js"
 ));
 
