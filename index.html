@@ -26,7 +26,8 @@
         text-decoration: underline;
       }
       h1 {
-        font: 400 60px "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-family: 'Museo Sans';
+        font-size: 60px;
         color: #333;
         text-align: center;
       }
@@ -109,8 +110,8 @@
         padding: 0 30px;
       }
       #features > div h2 {
-        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-        font-weight: bold;
+        font-family: 'Museo Sans';
+        font-size: 25px;
       }
       .chart.resizable .resizable-se {
         background-image: url(resources/resize-handle.gif);
@@ -122,6 +123,9 @@
         top: 0px;
         z-index: 9999;
       }
+      nav ul{
+        padding: 0px;
+      }
       nav li {
         list-style: none;
         display: inline-block;
@@ -129,6 +133,7 @@
         color: #000;
         background: #FFF;
         background: rgba(255, 255, 255, 0.4);
+        -webkit-transition: 0.2s ease-in-out;
         transition: 0.2s ease-in-out;
         -webkit-border-radius: 10px;
         border-radius: 10px;
@@ -490,7 +495,7 @@
             var id = el.getAttribute('href').replace(/^#/, '');
             var tar = document.getElementById(id);
             var y = tar.parentNode.offsetTop;
-            scrollTo(0, y - 80, {
+            scrollTo(0, y - 55, {
               ease: 'in-out-quad',
               duration: 500
             });
