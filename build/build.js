@@ -6740,6 +6740,8 @@ exports['out-elastic'] = exports.outElastic;\n\
 exports['in-out-elastic'] = exports.inOutElastic;\n\
 //@ sourceURL=component-ease/index.js"
 ));
+
+
 require.register("livechart/index.js", Function("exports, require, module",
 "var LineChart = require('./lib/linechart');\n\
 var AreaChart = require('./lib/areachart');\n\
@@ -6784,6 +6786,7 @@ function Chart (dom) {\n\
   dom.appendChild(this.canvas);\n\
   this.resize();\n\
   this.settings = {};\n\
+  this.set('format', function (v) { return v; });\n\
 }\n\
 \n\
 Configurable(Chart.prototype);\n\
@@ -6900,7 +6903,6 @@ function BarChart(parent){\n\
   Chart.call(this, parent);\n\
   this.set('max', 100);\n\
   this.set('min', 0);\n\
-  this.set('format', function (v) { return v; });\n\
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);\n\
   this.bars = [];\n\
 }\n\
@@ -7171,12 +7173,15 @@ LineChart.prototype.getY = function(v, ps){\n\
 \n\
 LineChart.prototype.drawValues = function(p1, p2) {\n\
   var ctx = this.ctx;\n\
+  var format = this.get('format');\n\
   ctx.textBaseline = 'bottom';\n\
   var top = p1.y <= p2.y ? p1 : p2;\n\
   var bottom = p1.y > p2.y ? p1 : p2;\n\
-  ctx.fillText(top.value, top.x, top.y - 5);\n\
+  var tv = format(top.value);\n\
+  var bv = format(bottom.value);\n\
+  ctx.fillText(tv, top.x, top.y - 5);\n\
   ctx.textBaseline = 'top';\n\
-  ctx.fillText(bottom.value, bottom.x, bottom.y + 5);\n\
+  ctx.fillText(bv, bottom.x, bottom.y + 5);\n\
 }\n\
 \n\
 LineChart.prototype.drawLine = function(ps, i) {\n\
@@ -7331,12 +7336,15 @@ AreaChart.prototype.getY = function(v, ps){\n\
 \n\
 AreaChart.prototype.drawValues = function(p1, p2) {\n\
   var ctx = this.ctx;\n\
+  var format = this.get('format');\n\
   ctx.textBaseline = 'bottom';\n\
   var top = p1.y <= p2.y ? p1 : p2;\n\
   var bottom = p1.y > p2.y ? p1 : p2;\n\
-  ctx.fillText(top.value, top.x, top.y - 5);\n\
+  var tv = format(top.value);\n\
+  var bv = format(bottom.value);\n\
+  ctx.fillText(tv, top.x, top.y - 5);\n\
   ctx.textBaseline = 'top';\n\
-  ctx.fillText(bottom.value, bottom.x, bottom.y + 5);\n\
+  ctx.fillText(bv, bottom.x, bottom.y + 5);\n\
 }\n\
 \n\
 AreaChart.prototype.drawLine = function(ps, i) {\n\
@@ -7813,6 +7821,8 @@ module.exports = Histogram;\n\
 
 
 
+
+
 require.alias("ramitos-resize/src/resize.js", "livechart/deps/resize/src/resize.js");
 require.alias("ramitos-resize/src/resize.js", "livechart/deps/resize/index.js");
 require.alias("ramitos-resize/src/resize.js", "resize/index.js");
@@ -7950,5 +7960,6 @@ require.alias("component-ease/index.js", "component-tween/deps/ease/index.js");
 require.alias("component-scroll-to/index.js", "component-scroll-to/index.js");
 require.alias("component-ease/index.js", "livechart/deps/ease/index.js");
 require.alias("component-ease/index.js", "ease/index.js");
+
 
 require.alias("livechart/index.js", "livechart/index.js");
