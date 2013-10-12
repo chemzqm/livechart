@@ -3,6 +3,8 @@
 
   Canvas chart for display dynamic data with animatiion.
 
+  [Demo](http://chemzqm.github.io/livechart/)
+
 ## Features
 
 * **Lightweight**, < 12k when minified and gziped.
