@@ -15,12 +15,12 @@
     "component/emitter": "*",
     "visionmedia/configurable.js": "*",
     "component/autoscale-canvas": "*",
-    "component/style": "*",
+    "component/style": "*"
+  },
+  "development": {
     "chemzqm/highlight.js": "*",
     "ui-component/resizable": "*",
     "component/ease": "*"
-  },
-  "development": {
   },
   "license": "MIT",
   "main": "index.js",
