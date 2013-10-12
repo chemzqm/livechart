@@ -440,20 +440,12 @@ module.exports = function(arr, fn){
 });
 require.register("component-raf/index.js", function(exports, require, module){
 
-/**
- * Expose `requestAnimationFrame()`.
- */
-
-exports = module.exports = window.requestAnimationFrame
+module.exports = window.requestAnimationFrame
   || window.webkitRequestAnimationFrame
   || window.mozRequestAnimationFrame
   || window.oRequestAnimationFrame
   || window.msRequestAnimationFrame
   || fallback;
-
-/**
- * Fallback implementation.
- */
 
 var prev = new Date().getTime();
 function fallback(fn) {
@@ -463,22 +455,10 @@ function fallback(fn) {
   prev = curr;
 }
 
-/**
- * Cancel.
- */
-
-var cancel = window.cancelAnimationFrame
-  || window.webkitCancelAnimationFrame
-  || window.mozCancelAnimationFrame
-  || window.oCancelAnimationFrame
-  || window.msCancelAnimationFrame;
-
-exports.cancel = function(id){
-  cancel.call(window, id);
-};
-
 });
 require.register("component-ease/index.js", function(exports, require, module){
+
+// easing functions from "Tween.js"
 
 exports.linear = function(n){
   return n;
@@ -618,6 +598,34 @@ exports.inOutBounce = function(n){
   return exports.outBounce(n * 2 - 1) * .5 + .5;
 };
 
+exports.inElastic = function(n){
+  var s, a = 0.1, p = 0.4;
+  if ( n === 0 ) return 0;
+  if ( n === 1 ) return 1;
+  if ( !a || a < 1 ) { a = 1; s = p / 4; }
+  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );
+  return - ( a * Math.pow( 2, 10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) );
+};
+
+exports.outElastic = function(n){
+  var s, a = 0.1, p = 0.4;
+  if ( n === 0 ) return 0;
+  if ( n === 1 ) return 1;
+  if ( !a || a < 1 ) { a = 1; s = p / 4; }
+  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );
+  return ( a * Math.pow( 2, - 10 * n) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) + 1 );
+};
+
+exports.inOutElastic = function(n){
+  var s, a = 0.1, p = 0.4;
+  if ( n === 0 ) return 0;
+  if ( n === 1 ) return 1;
+  if ( !a || a < 1 ) { a = 1; s = p / 4; }
+  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );
+  if ( ( n *= 2 ) < 1 ) return - 0.5 * ( a * Math.pow( 2, 10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) );
+  return a * Math.pow( 2, -10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) * 0.5 + 1;
+};
+
 // aliases
 
 exports['in-quad'] = exports.inQuad;
@@ -647,6 +655,9 @@ exports['in-out-back'] = exports.inOutBack;
 exports['in-bounce'] = exports.inBounce;
 exports['out-bounce'] = exports.outBounce;
 exports['in-out-bounce'] = exports.inOutBounce;
+exports['in-elastic'] = exports.inElastic;
+exports['out-elastic'] = exports.outElastic;
+exports['in-out-elastic'] = exports.inOutElastic;
 
 });
 require.register("component-tween/index.js", function(exports, require, module){
@@ -850,7 +861,22 @@ module.exports = function(a, b){
   a.prototype.constructor = a;
 };
 });
+require.register("component-indexof/index.js", function(exports, require, module){
+module.exports = function(arr, obj){
+  if (arr.indexOf) return arr.indexOf(obj);
+  for (var i = 0; i < arr.length; ++i) {
+    if (arr[i] === obj) return i;
+  }
+  return -1;
+};
+});
 require.register("component-emitter/index.js", function(exports, require, module){
+
+/**
+ * Module dependencies.
+ */
+
+var index = require('indexof');
 
 /**
  * Expose `Emitter`.
@@ -955,7 +981,7 @@ Emitter.prototype.removeAllListeners = function(event, fn){
   }
 
   // remove specific handler
-  var i = callbacks.indexOf(fn._off || fn);
+  var i = index(callbacks, fn._off || fn);
   if (~i) callbacks.splice(i, 1);
   return this;
 };
@@ -1216,16 +1242,18 @@ var styles = window.getComputedStyle;
 
 function Chart (dom) {
   this.parent = dom;
+  this.styles = {
+    color: style('.livechart .text', 'color'),
+    fontSize: style('.livechart .text', 'font-size') || '10px',
+    titleColor: style('.livechart .title', 'color'),
+    titleSize: style('.livechart .title', 'font-size') || '14px'
+  };
   var canvas = this.canvas  = document.createElement('canvas');
   resize.bind(dom, debounce(this.resize.bind(this)), 200);
   dom.appendChild(this.canvas);
   this.resize();
   this.settings = {};
-  this.styles = {};
-  this.styles.color = style('.livechart .text', 'color');
-  this.styles.fontSize = style('.livechart .text', 'font-size') || '10px';
-  this.styles.titleColor = style('.livechart .title', 'color');
-  this.styles.titleSize = style('.livechart .title', 'font-size') || '14px';
+  this.set('format', function (v) { return v; });
 }
 
 Configurable(Chart.prototype);
@@ -1242,10 +1270,6 @@ Chart.prototype.resize = function() {
   var ctx = this.ctx = canvas.getContext('2d');
   //origin at left bottom
   ctx.translate(0, this.height);
-}
-
-//should be implemented by subclass
-Chart.prototype.draw = function(delta) {
 }
 
 Chart.prototype.start = function() {
@@ -1346,7 +1370,6 @@ function BarChart(parent){
   Chart.call(this, parent);
   this.set('max', 100);
   this.set('min', 0);
-  this.set('format', function (v) { return v; });
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);
   this.bars = [];
 }
@@ -1617,12 +1640,15 @@ LineChart.prototype.getY = function(v, ps){
 
 LineChart.prototype.drawValues = function(p1, p2) {
   var ctx = this.ctx;
+  var format = this.get('format');
   ctx.textBaseline = 'bottom';
   var top = p1.y <= p2.y ? p1 : p2;
   var bottom = p1.y > p2.y ? p1 : p2;
-  ctx.fillText(top.value, top.x, top.y - 5);
+  var tv = format(top.value);
+  var bv = format(bottom.value);
+  ctx.fillText(tv, top.x, top.y - 5);
   ctx.textBaseline = 'top';
-  ctx.fillText(bottom.value, bottom.x, bottom.y + 5);
+  ctx.fillText(bv, bottom.x, bottom.y + 5);
 }
 
 LineChart.prototype.drawLine = function(ps, i) {
@@ -1777,12 +1803,15 @@ AreaChart.prototype.getY = function(v, ps){
 
 AreaChart.prototype.drawValues = function(p1, p2) {
   var ctx = this.ctx;
+  var format = this.get('format');
   ctx.textBaseline = 'bottom';
   var top = p1.y <= p2.y ? p1 : p2;
   var bottom = p1.y > p2.y ? p1 : p2;
-  ctx.fillText(top.value, top.x, top.y - 5);
+  var tv = format(top.value);
+  var bv = format(bottom.value);
+  ctx.fillText(tv, top.x, top.y - 5);
   ctx.textBaseline = 'top';
-  ctx.fillText(bottom.value, bottom.x, bottom.y + 5);
+  ctx.fillText(bv, bottom.x, bottom.y + 5);
 }
 
 AreaChart.prototype.drawLine = function(ps, i) {
@@ -2274,6 +2303,7 @@ require.alias("component-raf/index.js", "raf/index.js");
 require.alias("component-tween/index.js", "livechart/deps/tween/index.js");
 require.alias("component-tween/index.js", "tween/index.js");
 require.alias("component-emitter/index.js", "component-tween/deps/emitter/index.js");
+require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
 
 require.alias("component-ease/index.js", "component-tween/deps/ease/index.js");
 
@@ -2282,6 +2312,7 @@ require.alias("component-inherit/index.js", "inherit/index.js");
 
 require.alias("component-emitter/index.js", "livechart/deps/emitter/index.js");
 require.alias("component-emitter/index.js", "emitter/index.js");
+require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
 
 require.alias("visionmedia-configurable.js/index.js", "livechart/deps/configurable.js/index.js");
 require.alias("visionmedia-configurable.js/index.js", "configurable.js/index.js");
