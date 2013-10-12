@@ -8,10 +8,15 @@
     <script src="build/build.min.js"></script>
     <style>
       body {
-        padding:0 100px;
+        padding:50px 0 0 0;
         font: 400 14px/1.6 "Open Sans", sans-serif;
         color: #777;
         line-height: 1.4;
+        background: #f5f5f5;
+      }
+      .container {
+        width: 1080px;
+        margin: 0 auto;
       }
       a {
         color: #259DFF;
@@ -31,7 +36,7 @@
       }
       .chart {
         height: 250px;
-        width: 400px;
+        width: 350px;
         margin: 10px 0;
         position: absolute;
         left: 50px;
@@ -41,6 +46,9 @@
         float: right;
         width: 650px;
         margin: 0;
+      }
+      .code code {
+        border-radius: 5px;
       }
       section:after {
         content:".";
@@ -109,316 +117,387 @@
         width: 12px;
         height: 12px;
       }
+      nav {
+        position: fixed;
+        top: 0px;
+        z-index: 9999;
+      }
+      nav li {
+        list-style: none;
+        display: inline-block;
+        margin: 10px;
+        color: #000;
+        background: #FFF;
+        background: rgba(255, 255, 255, 0.4);
+        transition: 0.2s ease-in-out;
+        -webkit-border-radius: 10px;
+        border-radius: 10px;
+      }
+      nav li a{
+        padding: 9px 18px;
+        display: block;
+        text-decoration: none;
+        color: #000;
+      }
+      nav li a:hover{
+        text-decoration: none;
+      }
+      nav li:hover {
+        background: rgba(255, 255, 255, 1);
+      }
+      ul:after {
+        content:".";
+        display:block;
+        height:0;
+        clear:both;
+        visibility:hidden;
+      }
+      footer {
+        text-align: center;
+      }
     </style>
   </head>
   <body>
-  <h1>livechart</h1>
-  <header>
-    <a id="github" href="https://github.com/chemzqm/livechart">Documentation</a>
-  </header>
-  <div id="features">
-    <div>
-      <h2>Small and fast</h2>
-      <p>
-        Lightwight ( &lt; 8k when minified and gzipped with component), using canvas which have a better performance than svg.
-      </p>
+  <div class="container">
+  <nav>
+    <ul>
+      <li><a href="#linechart">linechart</a></li>
+      <li><a href="#areachart">areachart</a></li>
+      <li><a href="#histogram">histogram</a></li>
+      <li><a href="#barchart">barchart</a></li>
+      <li><a href="#piechart">piechart</a></li>
+      <li><a href="#arcchart">arcchart</a></li>
+      <li><a href="#polarchart">polarchart</a></li>
+    </ul>
+  </nav>
+    <h1>livechart</h1>
+    <header>
+      <a id="github" href="https://github.com/chemzqm/livechart">Documentation</a>
+    </header>
+    <div id="features">
+      <div>
+        <h2>Small and fast</h2>
+        <p>
+          Lightwight ( &lt; 8k when minified and gzipped with component), using canvas which have a better performance than svg.
+        </p>
+      </div>
+      <div>
+        <h2>Scalable</h2>
+        <p>
+          The canvas element could adjust itself when the container resized. You can <strong>resize</strong> the container of charts below to see it in action.
+        </p>
+      </div>
+      <div>
+        <h2>Easy configuration</h2>
+        <p>
+          Using <a href="http://tjholowaychuk.com/post/6339741902/styling-canvas-drawings-with-css">style</a> for basic styling, and <a href="https://github.com/visionmedia/configurable.js">configurable.js</a> to achieve a fluent API for setting other options.
+        </p>
+      </div>
     </div>
-    <div>
-      <h2>Scalable</h2>
-      <p>
-        The canvas element could adjust itself when the container resized. You can <strong>resize</strong> the container of charts below to see it in action.
-      </p>
-    </div>
-    <div>
-      <h2>Easy configuration</h2>
-      <p>
-        Using <a href="http://tjholowaychuk.com/post/6339741902/styling-canvas-drawings-with-css">component/style</a> for basic styling, and <a href="https://github.com/visionmedia/configurable.js">visionmedia/configurable.js</a> to achieve a fluent API for other options configuration.
-      </p>
-    </div>
-  </div>
-    <section>
-      <div id="linechart" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var LineChart = require('livechart').LineChart;
-var parent = document.getElementById("linechart");
-var chart = new LineChart(parent);
-//count of points
-chart.set('count', 10);
-chart.set('labels', ['pv', 'click']);
-setInterval(function(){
-  var v1 = Math.floor(Math.random() * 1000);
-  var v2 = Math.floor(Math.random() * 100);
-  chart.add([v1, v2]);
-}, 1000)
-      </code>
-      </pre>
-    </section>
-    <section>
-      <div id="areachart" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var AreaChart = require('livechart').AreaChart;
-var parent = document.getElementById("areachart");
-var chart = new AreaChart(parent);
-//count of points
-chart.set('count', 10);
-setInterval(function(){
-  var v1 = Math.floor(Math.random() * 100);
-  var v2 = Math.floor(Math.random() * 100);
-  chart.add([v1, v2]);
-}, 1000)
-      </code>
-      </pre>
-    </section>
-    <section>
-      <div id="histogram" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var Histogram = require('livechart').Histogram;
-var parent = document.getElementById("histogram");
-var chart = new Histogram(parent);
-//count of columns
-chart.set('count', 100);
-chart.set('max', 1);
-chart.set('min', 0);
-var x = 0;
-setInterval(function(){
-  var v = Math.min(ease.inOutBounce(x++) / (Math.random() + 1), 1000000) + 10;
-  chart.add(v);
-}, 1000)
-      </code>
-      </pre>
-    </section>
-    <section>
-      <div id="barchart" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var BarChart = require('livechart').BarChart;
-var parent = document.getElementById("barchart");
-var chart = new BarChart(parent);
-chart.set('labels', ['Chrome', 'IE', 'Safari', 'Firefox', 'Opera']);
-chart.set('format', function(v) {
-  return v.toFixed(1);
-});
-chart.set('max', 100);
-chart.set('min', 0);
-var titles = ['January', 'Februry', 'March', 'April', 'May',
-'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-var c = 0;
-setInterval(function(){
-  var vs = datas[c];
-  chart.set('title', titles[c]);
-  chart.add(getValuesByMonth(c));
-  c = (c === 11) ? 0 : c + 1;
-}, 2000);
-      </code>
-      </pre>
-    </section>
-    <section>
-      <div id="piechart" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var PieChart = require('livechart').PieChart;
-var parent = document.getElementById("piechart");
-var chart = new PieChart(parent);
-chart.set('labels', ['Free', 'Wired', 'Active', 'Inactive']);
-setInterval(function(){
-  var values = random(4);
-  chart.add(values);
-}, 1000);
-      </code>
-      </pre>
-    </section>
-    <section>
-      <div id="arcchart" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var ArcChart = require('livechart').ArcChart;
-var parent = document.getElementById("arcchart");
-var chart = new ArcChart(parent);
-chart.set('labels', ['CPU', 'Memory']);
-setInterval(function(){
-  var vs = [];
-  vs.push(0.5 + Math.random() * 0.5);
-  vs.push(Math.random() * 0.4);
-  chart.add(vs);
-}, 1000);
-      </code>
-      </pre>
-    </section>
-    <section>
-      <div id="polarchart" class="chart">
-      </div>
-      <pre class="code">
-      <code>
-var PolarChart = require('livechart').PolarChart;
-var parent = document.getElementById("polarchart");
-var chart = new PolarChart(parent);
-chart.set('labels', ['Bounce rate', 'Click rate', 'Transform rate',
-        'Exposure rate', 'Transaction rate', 'Sell rate']);
-setInterval(function(){
-  var vs = [0.30, 0.90, 0.24, 0.58, 0.82, 0.18];
-  var data = vs.map(function(v) {
-    return v - (Math.random()/10);
+      <section>
+        <div id="linechart" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var LineChart = require('livechart').LineChart;
+  var parent = document.getElementById("linechart");
+  var chart = new LineChart(parent);
+  //count of points
+  chart.set('count', 10);
+  chart.set('labels', ['pv', 'click']);
+  setInterval(function(){
+    var v1 = Math.floor(Math.random() * 1000);
+    var v2 = Math.floor(Math.random() * 100);
+    chart.add([v1, v2]);
+  }, 1000)
+        </code>
+        </pre>
+      </section>
+      <section>
+        <div id="areachart" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var AreaChart = require('livechart').AreaChart;
+  var parent = document.getElementById("areachart");
+  var chart = new AreaChart(parent);
+  //count of points
+  chart.set('count', 10);
+  setInterval(function(){
+    var v1 = Math.floor(Math.random() * 100);
+    var v2 = Math.floor(Math.random() * 100);
+    chart.add([v1, v2]);
+  }, 1000)
+        </code>
+        </pre>
+      </section>
+      <section>
+        <div id="histogram" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var Histogram = require('livechart').Histogram;
+  var parent = document.getElementById("histogram");
+  var chart = new Histogram(parent);
+  //count of columns
+  chart.set('count', 100);
+  chart.set('max', 1);
+  chart.set('min', 0);
+  var x = 0;
+  setInterval(function(){
+    var v = Math.min(ease.inOutBounce(x++) / (Math.random() + 1), 1000000) + 10;
+    chart.add(v);
+  }, 1000)
+        </code>
+        </pre>
+      </section>
+      <section>
+        <div id="barchart" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var BarChart = require('livechart').BarChart;
+  var parent = document.getElementById("barchart");
+  var chart = new BarChart(parent);
+  chart.set('labels', ['Chrome', 'IE', 'Safari', 'Firefox', 'Opera']);
+  chart.set('format', function(v) {
+    return v.toFixed(1);
   });
-  chart.add(data);
-}, 1000);
-      </code>
-      </pre>
-    </section>
-    <script>
-      var ease = require('component-ease');
-      //linechart
-      (function(){
-        var LineChart = require('livechart').LineChart;
-        var parent = document.getElementById("linechart");
-        var chart = new LineChart(parent);
-        //count of points
-        chart.set('count', 10);
-        chart.set('labels', ['pv', 'click']);
-        setInterval(function(){
-          var v1 = Math.floor(Math.random() * 1000);
-          var v2 = Math.floor(Math.random() * 100);
-          chart.add([v1, v2]);
-        }, 1000)
-      })();
-      //areachart
-      (function(){
-        var AreaChart = require('livechart').AreaChart;
-        var parent = document.getElementById("areachart");
-        var chart = new AreaChart(parent);
-        //count of points
-        chart.set('count', 10);
-        setInterval(function(){
-          var v1 = Math.floor(Math.random() * 100);
-          var v2 = Math.floor(Math.random() * 100);
-          chart.add([v1, v2]);
-        }, 1000)
-      })();
-      //histogram
-      (function(){
-        var Histogram = require('livechart').Histogram;
-        var parent = document.getElementById("histogram");
-        var chart = new Histogram(parent);
-        //count of columns
-        chart.set({
-          count: 100,
-          max: 1,
-          min: 0
-        });
-        var x = 0;
-        setInterval(function(){
-          var v = Math.min(ease.inOutBounce(x++) / (Math.random() + 1), 1000000) + 10;
-          chart.add(v);
-        }, 1000)
-      })();
-      //barchart
-      (function(){
-        var BarChart = require('livechart').BarChart;
-        var parent = document.getElementById("barchart");
-        var chart = new BarChart(parent);
-        //required
-        chart.set('labels', ['Chrome', 'IE', 'Safari', 'Firefox', 'Opera']);
-        chart.set('format', function(v) {
-          return v.toFixed(1);
-        });
-        chart.set('max', 100);
-        chart.set('min', 0);
-        //return function for generate random value
-        function value() {
-          var v = 0;
-          return function (j){
-            if (j === 0) return 100 - v;
-            var d = Math.random() * (100 - v);
-            v += d;
-            return d;
-          }
-        }
-        function update(i) {
-        var titles = ['January', 'Februry', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-          var datas = [];
-          while (i--) {
-            var j = 5;
-            var fn = value();
-            var vs = [];
-            while (j--) vs.push(fn(j));
-            datas.push(vs);
-          }
-          var c = 0;
+  chart.set('max', 100);
+  chart.set('min', 0);
+  var titles = ['January', 'Februry', 'March', 'April', 'May',
+  'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var c = 0;
+  setInterval(function(){
+    var vs = datas[c];
+    chart.set('title', titles[c]);
+    chart.add(getValuesByMonth(c));
+    c = (c === 11) ? 0 : c + 1;
+  }, 2000);
+        </code>
+        </pre>
+      </section>
+      <section>
+        <div id="piechart" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var PieChart = require('livechart').PieChart;
+  var parent = document.getElementById("piechart");
+  var chart = new PieChart(parent);
+  chart.set('labels', ['Free', 'Wired', 'Active', 'Inactive']);
+  setInterval(function(){
+    var values = random(4);
+    chart.add(values);
+  }, 1000);
+        </code>
+        </pre>
+      </section>
+      <section>
+        <div id="arcchart" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var ArcChart = require('livechart').ArcChart;
+  var parent = document.getElementById("arcchart");
+  var chart = new ArcChart(parent);
+  chart.set('labels', ['CPU', 'Memory']);
+  setInterval(function(){
+    var vs = [];
+    vs.push(0.5 + Math.random() * 0.5);
+    vs.push(Math.random() * 0.4);
+    chart.add(vs);
+  }, 1000);
+        </code>
+        </pre>
+      </section>
+      <section>
+        <div id="polarchart" class="chart">
+        </div>
+        <pre class="code">
+        <code>
+  var PolarChart = require('livechart').PolarChart;
+  var parent = document.getElementById("polarchart");
+  var chart = new PolarChart(parent);
+  chart.set('labels', ['Bounce rate', 'Click rate', 'Transform rate',
+          'Exposure rate', 'Transaction rate', 'Sell rate']);
+  setInterval(function(){
+    var vs = [0.30, 0.90, 0.24, 0.58, 0.82, 0.18];
+    var data = vs.map(function(v) {
+      return v - (Math.random()/10);
+    });
+    chart.add(data);
+  }, 1000);
+        </code>
+        </pre>
+      </section>
+      <footer>
+        <p>Made By <a href="http://weibo.com/chemzqm">@chemzqm</a> with <a href="http://component.io/">component</a></p>
+        <p><strong>Mit license</strong></p>
+      </footer>
+      <script>
+        var ease = require('component-ease');
+        //linechart
+        (function(){
+          var LineChart = require('livechart').LineChart;
+          var parent = document.getElementById("linechart");
+          var chart = new LineChart(parent);
+          //count of points
+          chart.set('count', 10);
+          chart.set('labels', ['pv', 'click']);
           setInterval(function(){
-            var vs = datas[c];
-            chart.set('title', titles[c]);
-            chart.add(vs);
-            c = (c === 11) ? 0 : c + 1;
-          }, 2000);
-        }
-        update(12);
-      })();
-      //piechart
-      (function(){
-        function random(n) {
-          var arr = [];
-          var x = n + 2;
-          while(n--) arr.push(ease.inOutBounce(x--) * (1 + Math.random()));
-          return arr;
-        }
-        var PieChart = require('livechart').PieChart;
-        var parent = document.getElementById("piechart");
-        var chart = new PieChart(parent);
-        chart.set('labels', ['Free', 'Wired', 'Active', 'Inactive']);
-        setInterval(function(){
-          var values = random(4);
-          chart.add(values);
-        }, 1000);
-      })();
-      //arcchart
-      (function(){
-        var ArcChart = require('livechart').ArcChart;
-        var parent = document.getElementById("arcchart");
-        var chart = new ArcChart(parent);
-        chart.set('labels', ['CPU', 'Memory']);
-        setInterval(function(){
-          var vs = [];
-          vs.push(0.5 + Math.random() * 0.5);
-          vs.push(Math.random() * 0.4);
-          chart.add(vs);
-        }, 1000);
-      })();
-      //polarchart
-      (function(){
-        var PolarChart = require('livechart').PolarChart;
-        var parent = document.getElementById("polarchart");
-        var chart = new PolarChart(parent);
-        chart.set('labels', ['Bounce rate', 'Click rate', 'Transform rate', 'Exposure rate', 'Transaction rate', 'Sell rate']);
-        setInterval(function(){
-          var vs = [0.30, 0.90, 0.24, 0.58, 0.82, 0.18];
-          var data = vs.map(function(v) {
-            return v - (Math.random()/10);
+            var v1 = Math.floor(Math.random() * 1000);
+            var v2 = Math.floor(Math.random() * 100);
+            chart.add([v1, v2]);
+          }, 1000)
+        })();
+        //areachart
+        (function(){
+          var AreaChart = require('livechart').AreaChart;
+          var parent = document.getElementById("areachart");
+          var chart = new AreaChart(parent);
+          //count of points
+          chart.set('count', 10);
+          setInterval(function(){
+            var v1 = Math.floor(Math.random() * 100);
+            var v2 = Math.floor(Math.random() * 100);
+            chart.add([v1, v2]);
+          }, 1000)
+        })();
+        //histogram
+        (function(){
+          var Histogram = require('livechart').Histogram;
+          var parent = document.getElementById("histogram");
+          var chart = new Histogram(parent);
+          //count of columns
+          chart.set({
+            count: 100,
+            max: 1,
+            min: 0
           });
-          chart.add(data);
-        }, 1000);
-      })();
-      var doms = document.querySelectorAll('.chart');
-      Array.prototype.forEach.call(doms, function(node) {
-        var resizable = require('resizable')(node);
-        resizable.set('handles', 'se, s, e');
-        resizable.build();
-      })
-      var hljs = require('highlight.js');
-      var codes = document.querySelectorAll('.code > code');
-      Array.prototype.forEach.call(codes, function(node) {
-        var code = node.innerHTML;
-        var res= hljs.highlight('javascript', code);
-        node.innerHTML = res.value;
-      })
-    </script>
-  </body>
+          var x = 0;
+          setInterval(function(){
+            var v = Math.min(ease.inOutBounce(x++) / (Math.random() + 1), 1000000) + 10;
+            chart.add(v);
+          }, 1000)
+        })();
+        //barchart
+        (function(){
+          var BarChart = require('livechart').BarChart;
+          var parent = document.getElementById("barchart");
+          var chart = new BarChart(parent);
+          //required
+          chart.set('labels', ['Chrome', 'IE', 'Safari', 'Firefox', 'Opera']);
+          chart.set('format', function(v) {
+            return v.toFixed(1);
+          });
+          chart.set('max', 100);
+          chart.set('min', 0);
+          //return function for generate random value
+          function value() {
+            var v = 0;
+            return function (j){
+              if (j === 0) return 100 - v;
+              var d = Math.random() * (100 - v);
+              v += d;
+              return d;
+            }
+          }
+          function update(i) {
+          var titles = ['January', 'Februry', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'];
+            var datas = [];
+            while (i--) {
+              var j = 5;
+              var fn = value();
+              var vs = [];
+              while (j--) vs.push(fn(j));
+              datas.push(vs);
+            }
+            var c = 0;
+            setInterval(function(){
+              var vs = datas[c];
+              chart.set('title', titles[c]);
+              chart.add(vs);
+              c = (c === 11) ? 0 : c + 1;
+            }, 2000);
+          }
+          update(12);
+        })();
+        //piechart
+        (function(){
+          function random(n) {
+            var arr = [];
+            var x = n + 2;
+            while(n--) arr.push(ease.inOutBounce(x--) * (1 + Math.random()));
+            return arr;
+          }
+          var PieChart = require('livechart').PieChart;
+          var parent = document.getElementById("piechart");
+          var chart = new PieChart(parent);
+          chart.set('labels', ['Free', 'Wired', 'Active', 'Inactive']);
+          setInterval(function(){
+            var values = random(4);
+            chart.add(values);
+          }, 1000);
+        })();
+        //arcchart
+        (function(){
+          var ArcChart = require('livechart').ArcChart;
+          var parent = document.getElementById("arcchart");
+          var chart = new ArcChart(parent);
+          chart.set('labels', ['CPU', 'Memory']);
+          setInterval(function(){
+            var vs = [];
+            vs.push(0.5 + Math.random() * 0.5);
+            vs.push(Math.random() * 0.4);
+            chart.add(vs);
+          }, 1000);
+        })();
+        //polarchart
+        (function(){
+          var PolarChart = require('livechart').PolarChart;
+          var parent = document.getElementById("polarchart");
+          var chart = new PolarChart(parent);
+          chart.set('labels', ['Bounce rate', 'Click rate', 'Transform rate', 'Exposure rate', 'Transaction rate', 'Sell rate']);
+          setInterval(function(){
+            var vs = [0.30, 0.90, 0.24, 0.58, 0.82, 0.18];
+            var data = vs.map(function(v) {
+              return v - (Math.random()/10);
+            });
+            chart.add(data);
+          }, 1000);
+        })();
+        var doms = document.querySelectorAll('.chart');
+        Array.prototype.forEach.call(doms, function(node) {
+          var resizable = require('resizable')(node);
+          resizable.set('handles', 'se, s, e');
+          resizable.build();
+        })
+        var hljs = require('highlight.js');
+        var codes = document.querySelectorAll('.code > code');
+        Array.prototype.forEach.call(codes, function(node) {
+          var code = node.innerHTML;
+          var res= hljs.highlight('javascript', code);
+          node.innerHTML = res.value;
+        })
+        var navs = document.querySelectorAll('nav a');
+        Array.prototype.forEach.call(navs, function(node) {
+          var scrollTo = require('scroll-to');
+          node.addEventListener('click', function(e){
+            e.preventDefault();
+            var el = e.target;
+            var id = el.getAttribute('href').replace(/^#/, '');
+            var tar = document.getElementById(id);
+            var y = tar.parentNode.offsetTop;
+            scrollTo(0, y - 80, {
+              ease: 'in-out-quad',
+              duration: 500
+            });
+          }, false);
+        })
+
+      </script>
+  </div>
+</body>
 </html>
