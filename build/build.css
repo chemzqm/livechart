@@ -169,11 +169,16 @@
   padding-right: 10px;
   padding-bottom: 35px;
   padding-top: 20px;
-  border-radius: 3px;
 }
 
+.livechart .linechart .point,
 .livechart .areachart .point {
-  border-color: #fff;
+  width: 3px;
+}
+
+.livechart .areachart .pointborder {
+  width: 1px;
+  color: #fff;
 }
 
 .livechart .histogram {
@@ -204,12 +209,13 @@
   width: 15px;
   margin: 5px;
 }
+
 .livechart .polarchart .label {
   font-size: 10px;
   color: #666666;
 }
 
-.livechart .polarchart .segment {
-  border-color: #ffffff;
-  border-width: 1px;
+.livechart .polarchart .space {
+  color: #ffffff;
+  width: 1px;
 }

@@ -6872,10 +6872,10 @@ Chart.prototype.toRgb = function(hex) {\n\
 \n\
 Chart.prototype.calcRectDimensions = function(chart) {\n\
   var paddings = {\n\
-    t: getChartStyle(chart, 'padding-top', true),\n\
-    b: getChartStyle(chart, 'padding-bottom', true),\n\
-    l: getChartStyle(chart, 'padding-left', true),\n\
-    r: getChartStyle(chart, 'padding-right', true)\n\
+    t: getChartStyle(chart, 'paddingTop', true),\n\
+    b: getChartStyle(chart, 'paddingBottom', true),\n\
+    l: getChartStyle(chart, 'paddingLeft', true),\n\
+    r: getChartStyle(chart, 'paddingRight', true)\n\
   }\n\
   this.dims = {\n\
     x: paddings.l,\n\
@@ -6886,8 +6886,7 @@ Chart.prototype.calcRectDimensions = function(chart) {\n\
 }\n\
 \n\
 Chart.prototype.calcCircleDimensions = function(chart) {\n\
-var s = style('.livechart .piechart', 'padding');\n\
-  var padding = getChartStyle(chart, 'padding', true);\n\
+  var padding = getChartStyle(chart, 'paddingTop', true);\n\
   var min = Math.min(this.height, this.width);\n\
   var r = (min - padding*2)/2;\n\
   this.dims = {\n\
@@ -7254,7 +7253,7 @@ LineChart.prototype.drawXaxis = function() {\n\
   }\n\
 }\n\
 LineChart.prototype.draw = function(delta) {\n\
-  var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);\n\
+  var radius = parseInt(style('.livechart .linechart .point', 'width'), 10);\n\
   var ctx = this.ctx;\n\
   this.series.forEach(function(ps) {\n\
     ps.forEach(function(p) {\n\
@@ -7342,8 +7341,9 @@ AreaChart.prototype.drawLine = function(ps, i) {\n\
 }\n\
 \n\
 AreaChart.prototype.draw = function(delta) {\n\
-  var radius = parseInt(style('.livechart .areachart', 'border-radius'), 10);\n\
-  var borderColor = style('.livechart .areachart .point', 'border-color');\n\
+  var radius = parseInt(style('.livechart .areachart .point', 'width'), 10);\n\
+  var borderColor = style('.livechart .areachart .pointborder', 'color');\n\
+  var borderWidth = style('.livechart .areachart .pointborder', 'width');\n\
   var ctx = this.ctx;\n\
   this.series.forEach(function(ps) {\n\
     ps.forEach(function(p) {\n\
@@ -7378,7 +7378,7 @@ AreaChart.prototype.draw = function(delta) {\n\
       ctx.fill();\n\
       ctx.beginPath();\n\
       ctx.strokeStyle = borderColor;\n\
-      ctx.lineWidth = 1;\n\
+      ctx.lineWidth = borderWidth;\n\
       ctx.arc(p.x, p.y, radius + 1, 0, Math.PI*2, false);\n\
       ctx.stroke();\n\
     });\n\
@@ -7440,7 +7440,7 @@ ArcChart.prototype.draw = function(delta) {\n\
   var ctx = this.ctx;\n\
   var itemClass = '.livechar .arcchart .item';\n\
   var width = parseInt(style(itemClass, 'width'), 10);\n\
-  var gap = parseInt(style(itemClass, 'margin'), 10);\n\
+  var gap = parseInt(style(itemClass, 'marginTop'), 10);\n\
   this.items.forEach(function(item, i) {\n\
     var a = item.a;\n\
     var r = radius - (width + gap)*i;\n\
@@ -7534,7 +7534,8 @@ PolarChart.prototype.draw = function(delta) {\n\
   var radius = this.dims.r;\n\
   var ctx = this.ctx;\n\
   ctx.rotate(- Math.PI/2);\n\
-  var borderColor = style('.livechart .polarchart .segment', 'border-color');\n\
+  var borderColor = style('.livechart .polarchart .space', 'color');\n\
+  var borderWidth = style('.livechart .polarchart .space', 'width');\n\
   this.items.forEach(function(item, i) {\n\
     var r = item.r;\n\
     var rgb = this.toRgb(colors[i]);\n\
@@ -7546,6 +7547,7 @@ PolarChart.prototype.draw = function(delta) {\n\
     ctx.fill();\n\
     ctx.beginPath();\n\
     ctx.strokeStyle = borderColor;\n\
+    ctx.lineWidth = borderWidth;\n\
     ctx.moveTo(0, 0);\n\
     ctx.lineTo(radius, 0);\n\
     ctx.stroke();\n\
