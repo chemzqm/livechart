@@ -7235,6 +7235,7 @@ LineChart.prototype.drawXaxis = function() {\n\
   var count = this.get('count');\n\
   var ctx = this.ctx;\n\
   ctx.beginPath();\n\
+  ctx.lineWidth = 1;\n\
   ctx.strokeStyle = this.styles.color;\n\
   ctx.fillStyle = this.styles.color;\n\
   var y = parseInt(this.styles.fontSize, 10) + 10;\n\
@@ -7342,8 +7343,8 @@ AreaChart.prototype.drawLine = function(ps, i) {\n\
 \n\
 AreaChart.prototype.draw = function(delta) {\n\
   var radius = parseInt(style('.livechart .areachart .point', 'width'), 10);\n\
+  var borderWidth = parseInt(style('.livechart .areachart .pointborder', 'width'), 10);\n\
   var borderColor = style('.livechart .areachart .pointborder', 'color');\n\
-  var borderWidth = style('.livechart .areachart .pointborder', 'width');\n\
   var ctx = this.ctx;\n\
   this.series.forEach(function(ps) {\n\
     ps.forEach(function(p) {\n\
