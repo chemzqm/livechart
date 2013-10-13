@@ -30,9 +30,20 @@
         color: #333;
         text-align: center;
       }
+      h2 {
+        color: #555;
+      }
       section {
         position: relative;
         min-height: 350px;
+      }
+      section:before {
+        content: '';
+        width: 600px;
+        margin: 0px auto;
+        border-bottom: 1px solid #c6c6c6;
+        display: block;
+        clear: both;
       }
       .chart {
         height: 250px;
@@ -91,6 +102,9 @@
       #github:hover {
         background-color: #1785E6;
       }
+      #features {
+        margin: 20px 0;
+      }
       #features:after {
         content:".";
         display:block;
@@ -106,7 +120,6 @@
       #features > div p {
         line-height: 24px;
         font-size: 14px;
-        color: #777;
         padding: 0 30px;
       }
       #features > div h2 {
@@ -162,8 +175,8 @@
       footer {
         text-align: center;
       }
-      .livechart .polarchart .segment {
-        border-color: #f5f5f5;
+      .livechart .polarchart .space {
+        color: #f5f5f5;
       }
     </style>
   </head>
@@ -503,7 +516,7 @@ setInterval(function(){
             var id = el.getAttribute('href').replace(/^#/, '');
             var tar = document.getElementById(id);
             var y = tar.parentNode.offsetTop;
-            scrollTo(0, y - 55, {
+            scrollTo(0, y - 62, {
               ease: 'in-out-quad',
               duration: 500
             });
