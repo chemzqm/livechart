@@ -6855,7 +6855,7 @@ Chart.prototype.drawLabels = function() {\n\
  */\n\
 Chart.prototype.draw = function() {\n\
   var ctx = this.ctx;\n\
-  ctx.clearRect(0, 0, this.width, this.height);\n\
+  ctx.clearRect(-100, 0, this.width + 100, this.height);\n\
   ctx.save();\n\
   ctx.font = this.styles.fontSize + ' helvetica';\n\
   ctx.translate(this.dims.x, this.dims.y);\n\
