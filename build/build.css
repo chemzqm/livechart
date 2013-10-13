@@ -154,17 +154,26 @@
   font-size: 10px;
 }
 
-.livechart .title {
-  font-size: 14px;
-  color: #999999;
+.livechart .label {
+  color: #666666;
 }
 
-.livechart .linechart {
+.livechart .title {
+  font-size: 18px;
+  color: #666666;
+}
+
+.livechart .linechart,
+.livechart .areachart {
   padding-left: 25px;
   padding-right: 10px;
   padding-bottom: 35px;
-  padding-top: 10px;
+  padding-top: 20px;
   border-radius: 3px;
+}
+
+.livechart .areachart .point {
+  border-color: #fff;
 }
 
 .livechart .histogram {
@@ -185,7 +194,22 @@
   width: 10px;
 }
 
+.livechart .piechart,
+.livechart .arcchart,
+.livechart .polarchart {
+  padding: 10px;
+}
+
+.livechar .arcchart .item {
+  width: 15px;
+  margin: 5px;
+}
 .livechart .polarchart .label {
   font-size: 10px;
   color: #666666;
+}
+
+.livechart .polarchart .segment {
+  border-color: #ffffff;
+  border-width: 1px;
 }

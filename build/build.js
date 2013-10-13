@@ -6758,6 +6758,8 @@ var Emitter = require ('emitter');\n\
 var raf = require ('raf');\n\
 var style = require ('style');\n\
 var Tween = require ('tween');\n\
+var min = require ('min');\n\
+var max = require ('max');\n\
 \n\
 \n\
 var styles = window.getComputedStyle;\n\
@@ -6768,7 +6770,8 @@ function Chart (dom) {\n\
     color: style('.livechart .text', 'color'),\n\
     fontSize: style('.livechart .text', 'font-size') || '10px',\n\
     titleColor: style('.livechart .title', 'color'),\n\
-    titleSize: style('.livechart .title', 'font-size') || '14px'\n\
+    titleSize: style('.livechart .title', 'font-size') || '14px',\n\
+    labelColor: style('.livechart .label', 'color')\n\
   };\n\
   var canvas = this.canvas  = document.createElement('canvas');\n\
   resize.bind(dom, debounce(this.resize.bind(this)), 200);\n\
@@ -6790,8 +6793,7 @@ Chart.prototype.resize = function() {\n\
   this.width = canvas.width = width;\n\
   autoscale(canvas);\n\
   var ctx = this.ctx = canvas.getContext('2d');\n\
-  //origin at left bottom\n\
-  ctx.translate(0, this.height);\n\
+  this.emit('resize');\n\
 }\n\
 \n\
 Chart.prototype.start = function() {\n\
@@ -6833,19 +6835,30 @@ Chart.prototype.drawLabels = function() {\n\
   var ctx = this.ctx;\n\
   var colors = this.get('colors');\n\
   ctx.save();\n\
-  ctx.setTransform(1, 0, 0, 1, 0, 0);\n\
-  var h = parseInt(this.styles.fontSize, 10) + 10;\n\
+  ctx.setTransform(window.devicePixelRatio || 1 ,0 ,0 ,window.devicePixelRatio || 1 ,0, 0);\n\
   ctx.textAlign = 'left';\n\
-  ctx.textBaseline = 'middle';\n\
-  ctx.font = '24px helvetica';\n\
+  ctx.textBaseline = 'top';\n\
+  ctx.font = '12px helvetica';\n\
   labels.forEach(function(text, i) {\n\
     var color = colors[i];\n\
     ctx.fillStyle = color;\n\
-    drawRoundRect(ctx, 5, i * (h + 10) + 5 , 25, h );\n\
-    ctx.fillStyle = this.styles.color;\n\
-    ctx.fillText(text, 40, i*(h+10) + h/2 + 5);\n\
+    drawRoundRect(ctx, 5, i * 18 + 5 , 18, 14 );\n\
+    ctx.fillStyle = this.styles.labelColor;\n\
+    ctx.fillText(text, 28, i* 18 + 5);\n\
   }.bind(this));\n\
   ctx.restore();\n\
+}\n\
+\n\
+/**\n\
+ * Called by every chart before drawing\n\
+ * @api private\n\
+ */\n\
+Chart.prototype.draw = function() {\n\
+  var ctx = this.ctx;\n\
+  ctx.clearRect(0, 0, this.width, this.height);\n\
+  ctx.save();\n\
+  ctx.font = this.styles.fontSize + ' helvetica';\n\
+  ctx.translate(this.dims.x, this.dims.y);\n\
 }\n\
 \n\
 Chart.prototype.toRgb = function(hex) {\n\
@@ -6855,6 +6868,46 @@ Chart.prototype.toRgb = function(hex) {\n\
       g: parseInt(result[2], 16),\n\
       b: parseInt(result[3], 16)\n\
   } : null;\n\
+}\n\
+\n\
+Chart.prototype.calcRectDimensions = function(chart) {\n\
+  var paddings = {\n\
+    t: getChartStyle(chart, 'padding-top', true),\n\
+    b: getChartStyle(chart, 'padding-bottom', true),\n\
+    l: getChartStyle(chart, 'padding-left', true),\n\
+    r: getChartStyle(chart, 'padding-right', true)\n\
+  }\n\
+  this.dims = {\n\
+    x: paddings.l,\n\
+    y: this.height - paddings.b,\n\
+    w: this.width - paddings.l - paddings.r,\n\
+    h: this.height - paddings.b - paddings.t\n\
+  }\n\
+}\n\
+\n\
+Chart.prototype.calcCircleDimensions = function(chart) {\n\
+var s = style('.livechart .piechart', 'padding');\n\
+  var padding = getChartStyle(chart, 'padding', true);\n\
+  var min = Math.min(this.height, this.width);\n\
+  var r = (min - padding*2)/2;\n\
+  this.dims = {\n\
+    x: (this.width - min)/2 + padding + r,\n\
+    y: (this.height - min)/2 + padding + r,\n\
+    r: r\n\
+  }\n\
+}\n\
+\n\
+Chart.prototype.getRange = function(){\n\
+  var minValue = min(this.items, 'value');\n\
+  var maxValue = max(this.items, 'value');\n\
+  minValue = Math.min(minValue, this.get('min'));\n\
+  maxValue = Math.max(maxValue, this.get('max'));\n\
+  this.set('min', minValue);\n\
+  this.set('max', maxValue);\n\
+  return {\n\
+    min: minValue,\n\
+    max: maxValue\n\
+  }\n\
 }\n\
 \n\
 function drawRoundRect (ctx, x, y , w, h) {\n\
@@ -6872,6 +6925,19 @@ function drawRoundRect (ctx, x, y , w, h) {\n\
   ctx.fill();\n\
 }\n\
 \n\
+/**\n\
+ * \n\
+ * @param {String} cn chart name\n\
+ * @param {String} sn style name\n\
+ * @param {Boolean} parse whether to parse int\n\
+ * @api public\n\
+ */\n\
+function getChartStyle (cn, sn, parse) {\n\
+  var v = style('.livechart .' + cn, sn);\n\
+  v = parse? parseInt(v, 10) : v;\n\
+  return v;\n\
+}\n\
+\n\
 module.exports = Chart;\n\
 //@ sourceURL=livechart/lib/chart.js"
 ));
@@ -6882,60 +6948,43 @@ var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
 var style = require ('style');\n\
 \n\
-var pl = parseInt(style('.livechart .barchart', 'padding-left'), 10);\n\
-var pr = parseInt(style('.livechart .barchart', 'padding-right'), 10);\n\
-var pb = parseInt(style('.livechart .barchart', 'padding-bottom'), 10);\n\
-var pt = parseInt(style('.livechart .barchart', 'padding-top'), 10);\n\
-var columnWidth = parseInt(style('.livechart .barchart .item', 'width'), 10);\n\
-\n\
 function BarChart(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcRectDimensions('barchart');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('max', 100);\n\
   this.set('min', 0);\n\
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);\n\
-  this.bars = [];\n\
+  this.items = [];\n\
 }\n\
 \n\
 inherit(BarChart, Chart);\n\
 \n\
-BarChart.prototype.getRange = function(){\n\
-  var minValue = min(this.bars, 'value');\n\
-  var maxValue = max(this.bars, 'value');\n\
-  minValue = Math.min(minValue, this.get('min'));\n\
-  maxValue = Math.max(maxValue, this.get('max'));\n\
-  this.set('min', minValue);\n\
-  this.set('max', maxValue);\n\
-  return {\n\
-    min: minValue,\n\
-    max: maxValue\n\
-  }\n\
-}\n\
-\n\
 BarChart.prototype.add = function(vs){\n\
-  var bars = this.bars;\n\
-  var init = (this.bars.length === 0);\n\
-  if (init) {\n\
+  var items = this.items;\n\
+  if (items.length === 0) {\n\
     vs.forEach(function(v, i) {\n\
-      bars.push({\n\
+      items.push({\n\
         value: v,\n\
         index: i\n\
       });\n\
     })\n\
   }\n\
   else {\n\
-    bars.forEach(function(bar) {\n\
+    items.forEach(function(bar) {\n\
       var v = vs[bar.index];\n\
       bar.value = v;\n\
     })\n\
   }\n\
   var r = this.getRange();\n\
-  this.bars = this.bars.sort(function(a, b) {\n\
+  this.items = items.sort(function(a, b) {\n\
     return b.value - a.value;\n\
   })\n\
   var space = this.getSpace();\n\
-  this.bars.forEach(function(bar, i) {\n\
+  this.items.forEach(function(bar, i) {\n\
     var tx= (i + 1) * space;\n\
-    var ty = 0 - (this.height - pb - pt) * (bar.value - r.min)/(r.max - r.min);\n\
+    var ty = 0 - (this.dims.h) * (bar.value - r.min)/(r.max - r.min);\n\
     bar.onFrame = this.tween({\n\
       x: bar.x || tx,\n\
       y: bar.y || 0\n\
@@ -6948,27 +6997,25 @@ BarChart.prototype.add = function(vs){\n\
 }\n\
 \n\
 BarChart.prototype.getSpace = function(){\n\
-  var count = this.get('labels').length;\n\
-  return (this.width - pl)/(count + 1);\n\
+  var c = this.get('labels').length;\n\
+  return (this.dims.w)/(c + 1);\n\
 }\n\
 \n\
 BarChart.prototype.draw = function(delta) {\n\
-  this.bars.forEach(function(item) {\n\
+  this.items.forEach(function(item) {\n\
     item.onFrame(delta);\n\
   })\n\
+  Chart.prototype.draw.call(this);\n\
   var fontColor = this.styles.color;\n\
   var colors = this.get('colors');\n\
   var labels = this.get('labels');\n\
   var ctx = this.ctx;\n\
   var format = this.get('format');\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
-  ctx.translate(pl, -pb);\n\
-  this.bars.forEach(function(item) {\n\
+  var cw = parseInt(style('.livechart .barchart .item', 'width'), 10);\n\
+  this.items.forEach(function(item) {\n\
     var i = item.index;\n\
     ctx.fillStyle = colors[i];\n\
-    ctx.fillRect(item.x - columnWidth/2, item.y, columnWidth, 0 - item.y);\n\
+    ctx.fillRect(item.x - cw/2, item.y, cw, 0 - item.y);\n\
     //label\n\
     ctx.fillStyle = fontColor;\n\
     ctx.textAlign = 'center';\n\
@@ -6984,15 +7031,15 @@ BarChart.prototype.draw = function(delta) {\n\
   ctx.strokeStyle = fontColor;\n\
   ctx.beginPath();\n\
   ctx.moveTo(0, 0);\n\
-  ctx.lineTo(this.width - pl - pr, 0);\n\
+  ctx.lineTo(this.dims.w, 0);\n\
   ctx.stroke();\n\
   //title\n\
   var title = this.get('title');\n\
-  ctx.textBaseline = 'top';\n\
+  ctx.textBaseline = 'bottom';\n\
   ctx.textAlign = 'center';\n\
   ctx.fillStyle = this.styles.titleColor;\n\
   ctx.font = this.styles.titleSize + ' helvetica';\n\
-  ctx.fillText(title, (this.width - pl -pr)/2, - this.height + pb + 5);\n\
+  ctx.fillText(title, this.dims.w/2, - this.dims.h - 5);\n\
   ctx.restore();\n\
 }\n\
 \n\
@@ -7006,6 +7053,9 @@ var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
 \n\
 function PieChart(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcCircleDimensions('piechart');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('colors', ['#F38630', '#E0E4CC', '#69D2E7', '#9D9B7F', '#F7464A', '#584A5E']);\n\
   this.items = [];\n\
@@ -7041,31 +7091,24 @@ PieChart.prototype.draw = function(delta) {\n\
   this.items.forEach(function(item) {\n\
     item.onFrame(delta);\n\
   })\n\
+  Chart.prototype.draw.call(this);\n\
   var fontColor = this.styles.color;\n\
   var colors = this.get('colors');\n\
-  var w = Math.min(this.width, this.height);\n\
-  var radius = (w - 10)/2;\n\
-  var tx = (this.width - w)/2 + w/2;\n\
-  var ty = (this.height - w)/2 + w/2;\n\
+  var r = this.dims.r;\n\
   var ctx = this.ctx;\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
   ctx.strokeStyle = '#ffffff';\n\
-  ctx.translate(tx, - ty);\n\
-  ctx.lineWidth = 1;\n\
   ctx.rotate(- Math.PI/2);\n\
   this.items.forEach(function(item, i) {\n\
     var a = item.a;\n\
     ctx.fillStyle = colors[i];\n\
     ctx.beginPath();\n\
     ctx.moveTo(0, 0);\n\
-    ctx.lineTo(radius, 0);\n\
-    ctx.arc(0, 0, radius, 0, a, false);\n\
+    ctx.lineTo(r, 0);\n\
+    ctx.arc(0, 0, r, 0, a, false);\n\
     ctx.fill();\n\
     ctx.beginPath();\n\
     ctx.moveTo(0, 0);\n\
-    ctx.lineTo(radius, 0);\n\
+    ctx.lineTo(r, 0);\n\
     ctx.stroke();\n\
     ctx.rotate(a);\n\
   });\n\
@@ -7079,8 +7122,8 @@ PieChart.prototype.draw = function(delta) {\n\
     var a = angle + item.a/2;\n\
     angle += item.a;\n\
     if (item.value < 0.05) return;\n\
-    var x = (radius/2) * Math.sin(a);\n\
-    var y = - (radius/2) * Math.cos(a);\n\
+    var x = (r/2) * Math.sin(a);\n\
+    var y = - (r/2) * Math.cos(a);\n\
     ctx.fillText((item.value * 100).toFixed(1), x, y);\n\
   })\n\
   this.drawLabels();\n\
@@ -7097,13 +7140,10 @@ var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
 var style = require ('style');\n\
 \n\
-var pl = parseInt(style('.livechart .linechart', 'padding-left'), 10);\n\
-var pr = parseInt(style('.livechart .linechart', 'padding-right'), 10);\n\
-var pb = parseInt(style('.livechart .linechart', 'padding-bottom'), 10);\n\
-var pt = parseInt(style('.livechart .linechart', 'padding-top'), 10);\n\
-var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);\n\
-\n\
 function LineChart(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcRectDimensions('linechart');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('count', 5);\n\
   this.set('colors', ['#F7464A', '#4A46F7']);\n\
@@ -7148,13 +7188,13 @@ LineChart.prototype.add = function(v){\n\
 }\n\
 \n\
 LineChart.prototype.getSpace = function(){\n\
-   return (this.width - pl - pr)/(this.get('count') - 1);\n\
+   return this.dims.w/(this.get('count') - 1);\n\
 }\n\
 \n\
 LineChart.prototype.getY = function(v, ps){\n\
   var minValue = min(ps, 'value');\n\
   var maxValue = max(ps, 'value');\n\
-  var h = this.height - pb -2*pt;\n\
+  var h = this.dims.h;\n\
   if (minValue == maxValue) return - h/2;\n\
   var y = 0 - h * (v - minValue)/(maxValue - minValue);\n\
   return y;\n\
@@ -7192,22 +7232,38 @@ LineChart.prototype.drawLine = function(ps, i) {\n\
   ctx.stroke();\n\
 }\n\
 \n\
+LineChart.prototype.drawXaxis = function() {\n\
+  var count = this.get('count');\n\
+  var ctx = this.ctx;\n\
+  ctx.beginPath();\n\
+  ctx.strokeStyle = this.styles.color;\n\
+  ctx.fillStyle = this.styles.color;\n\
+  var y = parseInt(this.styles.fontSize, 10) + 10;\n\
+  ctx.moveTo(- this.dims.x, y);\n\
+  ctx.lineTo(this.dims.w + 5 , y);\n\
+  ctx.stroke();\n\
+  var space = this.getSpace();\n\
+  ctx.textBaseline = 'top';\n\
+  for (var i = 0; i < count; i++) {\n\
+    var x = i * space;\n\
+    ctx.beginPath();\n\
+    ctx.moveTo(x, y);\n\
+    ctx.lineTo(x , y + 2);\n\
+    ctx.stroke();\n\
+    ctx.fillText((count - 1 - i) , x, y + 2);\n\
+  }\n\
+}\n\
 LineChart.prototype.draw = function(delta) {\n\
+  var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);\n\
+  var ctx = this.ctx;\n\
   this.series.forEach(function(ps) {\n\
     ps.forEach(function(p) {\n\
       p.onFrame(delta);\n\
     });\n\
   })\n\
-  var count = this.get('count');\n\
-  var ctx = this.ctx;\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
-  this.drawLabels();\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.translate(pl, -pb);\n\
+  Chart.prototype.draw.call(this);\n\
   ctx.textAlign = 'center';\n\
   ctx.fillStyle = this.styles.color;\n\
-  ctx.strokeStyle = this.styles.color;\n\
   if (this.series.length > 1) {\n\
     this.series[0].forEach(function(p1, i) {\n\
       var p2 = this.series[1][i];\n\
@@ -7220,23 +7276,6 @@ LineChart.prototype.draw = function(delta) {\n\
       ctx.fillText(v, p.x, p.y - 5);\n\
     })\n\
   }\n\
-  //bottom line\n\
-  ctx.beginPath();\n\
-  var ly = pb - 15;\n\
-  var lx = - (pl - 5);\n\
-  ctx.moveTo(lx, ly);\n\
-  ctx.lineTo(this.width - pl - 5 , ly);\n\
-  ctx.stroke();\n\
-  var space = this.getSpace();\n\
-  ctx.textBaseline = 'top';\n\
-  for (var i = 0; i < count; i++) {\n\
-    var x = i * space;\n\
-    ctx.beginPath();\n\
-    ctx.moveTo(x, ly);\n\
-    ctx.lineTo(x , ly + 2);\n\
-    ctx.stroke();\n\
-    ctx.fillText((count - 1 - i) , x, ly + 2);\n\
-  }\n\
   this.series.forEach(function(ps, i) {\n\
     //line\n\
     this.drawLine(ps, i);\n\
@@ -7247,6 +7286,8 @@ LineChart.prototype.draw = function(delta) {\n\
       ctx.fill();\n\
     });\n\
   }.bind(this));\n\
+  this.drawLabels();\n\
+  this.drawXaxis();\n\
   ctx.restore();\n\
 }\n\
 \n\
@@ -7258,83 +7299,19 @@ require.register("livechart/lib/areachart.js", Function("exports, require, modul
 var max = require ('max');\n\
 var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
+var LineChart = require ('./linechart');\n\
 var style = require ('style');\n\
 \n\
-var pl = parseInt(style('.livechart .linechart', 'padding-left'), 10);\n\
-var pr = parseInt(style('.livechart .linechart', 'padding-right'), 10);\n\
-var pb = parseInt(style('.livechart .linechart', 'padding-bottom'), 10);\n\
-var pt = parseInt(style('.livechart .linechart', 'padding-top'), 10);\n\
-var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);\n\
-\n\
 function AreaChart(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcRectDimensions('areachart');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('count', 10);\n\
   this.set('colors', ['#DCDCDC', '#97BBCD']);\n\
 }\n\
 \n\
-inherit(AreaChart, Chart);\n\
-\n\
-AreaChart.prototype.add = function(v){\n\
-  v = ( v instanceof Array)? v : [v];\n\
-  if (!this.series) {\n\
-    this.series = v.map(function() {\n\
-      return [];\n\
-    });\n\
-  }\n\
-  v.forEach(function(d, i) {\n\
-    this.series[i].push({\n\
-      value: d\n\
-    });\n\
-  }.bind(this));\n\
-  var count = this.get('count');\n\
-  if (this.series[0].length > count + 1) {\n\
-    this.series.forEach(function(ps) {\n\
-      ps.shift();\n\
-    });\n\
-  }\n\
-  var space = this.getSpace();\n\
-  this.series.forEach(function(ps) {\n\
-    ps.forEach(function(p, i) {\n\
-      var v = p.value;\n\
-      var tx = (i + count - ps.length) * space;\n\
-      var ty = this.getY(v, ps);\n\
-      if (!p.x) {\n\
-        p.x = tx;\n\
-        p.y = ty;\n\
-        p.onFrame = function(){};\n\
-      } else {\n\
-        p.onFrame = this.tween({ x: p.x, y: p.y }, { x: tx, y: ty });\n\
-      }\n\
-    }.bind(this));\n\
-  }.bind(this))\n\
-  this.start();\n\
-}\n\
-\n\
-AreaChart.prototype.getSpace = function(){\n\
-   return (this.width - pl - pr)/(this.get('count') - 1);\n\
-}\n\
-\n\
-AreaChart.prototype.getY = function(v, ps){\n\
-  var minValue = min(ps, 'value');\n\
-  var maxValue = max(ps, 'value');\n\
-  var h = this.height - pb -2*pt;\n\
-  if (minValue == maxValue) return - h/2;\n\
-  var y = 0 - h * (v - minValue)/(maxValue - minValue);\n\
-  return y;\n\
-}\n\
-\n\
-AreaChart.prototype.drawValues = function(p1, p2) {\n\
-  var ctx = this.ctx;\n\
-  var format = this.get('format');\n\
-  ctx.textBaseline = 'bottom';\n\
-  var top = p1.y <= p2.y ? p1 : p2;\n\
-  var bottom = p1.y > p2.y ? p1 : p2;\n\
-  var tv = format(top.value);\n\
-  var bv = format(bottom.value);\n\
-  ctx.fillText(tv, top.x, top.y - 5);\n\
-  ctx.textBaseline = 'top';\n\
-  ctx.fillText(bv, bottom.x, bottom.y + 5);\n\
-}\n\
+inherit(AreaChart, LineChart);\n\
 \n\
 AreaChart.prototype.drawLine = function(ps, i) {\n\
   var ctx = this.ctx;\n\
@@ -7343,9 +7320,6 @@ AreaChart.prototype.drawLine = function(ps, i) {\n\
   ctx.fillStyle = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b +', 0.5)';\n\
   ctx.strokeStyle = color;\n\
   ctx.beginPath();\n\
-  //ctx.shadowColor = 'rgb(153,153,153)';\n\
-  //ctx.shadowOffsetY = 1;\n\
-  //ctx.shadowBlur = 10;\n\
   ctx.lineWidth = 2;\n\
   var space = this.getSpace();\n\
   ps.forEach(function(p, i) {\n\
@@ -7361,24 +7335,22 @@ AreaChart.prototype.drawLine = function(ps, i) {\n\
     }\n\
   })\n\
   ctx.stroke();\n\
-  ctx.lineTo(ps[ps.length - 1].x, 20);\n\
-  ctx.lineTo(ps[0].x, 20);\n\
+  var y = parseInt(this.styles.fontSize, 10) + 10;\n\
+  ctx.lineTo(ps[ps.length - 1].x, y);\n\
+  ctx.lineTo(ps[0].x, y);\n\
   ctx.fill();\n\
 }\n\
 \n\
 AreaChart.prototype.draw = function(delta) {\n\
+  var radius = parseInt(style('.livechart .areachart', 'border-radius'), 10);\n\
+  var borderColor = style('.livechart .areachart .point', 'border-color');\n\
+  var ctx = this.ctx;\n\
   this.series.forEach(function(ps) {\n\
     ps.forEach(function(p) {\n\
       p.onFrame(delta);\n\
     });\n\
   })\n\
-  var count = this.get('count');\n\
-  var ctx = this.ctx;\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
-  this.drawLabels();\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.translate(pl, -pb);\n\
+  Chart.prototype.draw.call(this);\n\
   ctx.textAlign = 'center';\n\
   ctx.fillStyle = this.styles.color;\n\
   ctx.strokeStyle = this.styles.color;\n\
@@ -7394,23 +7366,6 @@ AreaChart.prototype.draw = function(delta) {\n\
       ctx.fillText(v, p.x, p.y - 5);\n\
     })\n\
   }\n\
-  //bottom line\n\
-  ctx.beginPath();\n\
-  var ly = pb - 15;\n\
-  var lx = - (pl - 5);\n\
-  ctx.moveTo(lx, ly);\n\
-  ctx.lineTo(this.width - pl - 5 , ly);\n\
-  ctx.stroke();\n\
-  var space = this.getSpace();\n\
-  ctx.textBaseline = 'top';\n\
-  for (var i = 0; i < count; i++) {\n\
-    var x = i * space;\n\
-    ctx.beginPath();\n\
-    ctx.moveTo(x, ly);\n\
-    ctx.lineTo(x , ly + 2);\n\
-    ctx.stroke();\n\
-    ctx.fillText((count - 1 - i) , x, ly + 2);\n\
-  }\n\
   this.series.forEach(function(ps, i) {\n\
     //line\n\
     this.drawLine(ps, i);\n\
@@ -7422,12 +7377,13 @@ AreaChart.prototype.draw = function(delta) {\n\
       ctx.arc(p.x, p.y, radius, 0, Math.PI*2, false);\n\
       ctx.fill();\n\
       ctx.beginPath();\n\
-      ctx.strokeStyle = '#ffffff';\n\
+      ctx.strokeStyle = borderColor;\n\
       ctx.lineWidth = 1;\n\
       ctx.arc(p.x, p.y, radius + 1, 0, Math.PI*2, false);\n\
       ctx.stroke();\n\
     });\n\
   }.bind(this));\n\
+  this.drawXaxis();\n\
   ctx.restore();\n\
 }\n\
 \n\
@@ -7439,8 +7395,12 @@ require.register("livechart/lib/arcchart.js", Function("exports, require, module
 var max = require ('max');\n\
 var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
+var style = require ('style');\n\
 \n\
 function ArcChart(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcCircleDimensions('arcchart');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('colors', ['#97BBCD', '#DCDCDC']);\n\
   this.items = [];\n\
@@ -7451,7 +7411,7 @@ inherit(ArcChart, Chart);\n\
 ArcChart.prototype.add = function(vs){\n\
   if (typeof vs === 'number') vs = [vs];\n\
   var items = this.items;\n\
-  var init = (items.length === 0);\n\
+  var init = items.length === 0;\n\
   vs.forEach(function(v, i) {\n\
     if (init) {\n\
       items.push({ value: v })\n\
@@ -7459,7 +7419,7 @@ ArcChart.prototype.add = function(vs){\n\
       items[i].value = v;\n\
     }\n\
   });\n\
-  this.items.forEach(function(item, i) {\n\
+  items.forEach(function(item, i) {\n\
     var a = item.value * Math.PI * 2;\n\
     item.onFrame = this.tween({\n\
       a: item.a || 0\n\
@@ -7473,20 +7433,14 @@ ArcChart.prototype.add = function(vs){\n\
 ArcChart.prototype.draw = function(delta) {\n\
   this.items.forEach(function(item) {\n\
     item.onFrame(delta);\n\
-  })\n\
-  var fontColor = this.styles.color;\n\
+  });\n\
+  Chart.prototype.draw.call(this);\n\
   var colors = this.get('colors');\n\
-  var w = Math.min(this.width, this.height);\n\
-  var radius = (w - 10)/2;\n\
-  var tx = (this.width - w)/2 + w/2;\n\
-  var ty = (this.height - w)/2 + w/2;\n\
+  var radius = this.dims.r;\n\
   var ctx = this.ctx;\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
-  ctx.translate(tx, - ty);\n\
-  var width = 10;\n\
-  var gap = 5;\n\
+  var itemClass = '.livechar .arcchart .item';\n\
+  var width = parseInt(style(itemClass, 'width'), 10);\n\
+  var gap = parseInt(style(itemClass, 'margin'), 10);\n\
   this.items.forEach(function(item, i) {\n\
     var a = item.a;\n\
     var r = radius - (width + gap)*i;\n\
@@ -7544,13 +7498,13 @@ var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
 var style = require ('style');\n\
 \n\
-var fontSize = style('.livechart .polarchart .label', 'font-size');\n\
-var color = style('.livechart .polarchart .label', 'color');\n\
-var steps = [20, 40, 60, 80, 100];\n\
-\n\
 function PolarChart(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcCircleDimensions('polarchart');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);\n\
+  this.set('steps', [20, 40, 60, 80, 100]);\n\
   this.items = [];\n\
 }\n\
 \n\
@@ -7574,21 +7528,13 @@ PolarChart.prototype.draw = function(delta) {\n\
   this.items.forEach(function(item) {\n\
     item.onFrame(delta);\n\
   })\n\
-  var fontColor = this.styles.color;\n\
+  Chart.prototype.draw.call(this);\n\
   var colors = this.get('colors');\n\
   var stepAngle = Math.PI * 2/this.items.length;\n\
-  var w = Math.min(this.width, this.height);\n\
-  var radius = (w - 10)/2;\n\
-  var tx = (this.width - w)/2 + w/2;\n\
-  var ty = (this.height - w)/2 + w/2;\n\
+  var radius = this.dims.r;\n\
   var ctx = this.ctx;\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
-  ctx.translate(tx, - ty);\n\
-  ctx.lineWidth = 1;\n\
   ctx.rotate(- Math.PI/2);\n\
-  ctx.strokeStyle = '#ffffff';\n\
+  var borderColor = style('.livechart .polarchart .segment', 'border-color');\n\
   this.items.forEach(function(item, i) {\n\
     var r = item.r;\n\
     var rgb = this.toRgb(colors[i]);\n\
@@ -7599,6 +7545,7 @@ PolarChart.prototype.draw = function(delta) {\n\
     ctx.arc(0, 0, radius * r, 0, stepAngle, false);\n\
     ctx.fill();\n\
     ctx.beginPath();\n\
+    ctx.strokeStyle = borderColor;\n\
     ctx.moveTo(0, 0);\n\
     ctx.lineTo(radius, 0);\n\
     ctx.stroke();\n\
@@ -7606,6 +7553,7 @@ PolarChart.prototype.draw = function(delta) {\n\
   }.bind(this));\n\
   //draw circles\n\
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';\n\
+  var steps = this.get('steps');\n\
   steps.forEach(function(v) {\n\
     ctx.beginPath();\n\
     ctx.arc(0, 0, radius * v/100, 0, Math.PI*2, false);\n\
@@ -7615,8 +7563,10 @@ PolarChart.prototype.draw = function(delta) {\n\
   //draw text\n\
   ctx.textBaseline = 'middle';\n\
   ctx.textAlign = 'center';\n\
-  ctx.font = fontSize + ' helvetica';\n\
-  var size = parseInt(fontSize, 10);\n\
+  var labelSize = style('.livechart .polarchart .label', 'font-size');\n\
+  ctx.font =  labelSize+ ' helvetica';\n\
+  var size = parseInt(labelSize, 10);\n\
+  var color = style('.livechart .polarchart .label', 'color');\n\
   steps.forEach(function(t) {\n\
     var w = ctx.measureText(t).width;\n\
     var y = - radius*t/100;\n\
@@ -7633,44 +7583,28 @@ module.exports = PolarChart;\n\
 //@ sourceURL=livechart/lib/polarchart.js"
 ));
 require.register("livechart/lib/histogram.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
+"var inherit = require('inherit');\n\
 var Chart = require ('./chart');\n\
 var style = require ('style');\n\
 \n\
-var pl = parseInt(style('.livechart .histogram', 'padding-left'), 10);\n\
-var pr = parseInt(style('.livechart .histogram', 'padding-right'), 10);\n\
-var pb = parseInt(style('.livechart .histogram', 'padding-bottom'), 10);\n\
-var pt = parseInt(style('.livechart .histogram', 'padding-top'), 10);\n\
-\n\
 function Histogram(parent){\n\
+  this.on('resize', function() {\n\
+    this.calcRectDimensions('histogram');\n\
+  }.bind(this))\n\
   Chart.call(this, parent);\n\
   this.set('count', 50);\n\
   this.set('max', 100);\n\
   this.set('min', 0);\n\
   this.set('colors', ['#69D2E7']);\n\
-  this.bars = [];\n\
+  this.items = [];\n\
   this.labels = [];\n\
 }\n\
 \n\
 inherit(Histogram, Chart);\n\
 \n\
-Histogram.prototype.getRange = function(){\n\
-  var minValue = min(this.bars, 'value');\n\
-  var maxValue = max(this.bars, 'value');\n\
-  minValue = Math.min(minValue, this.get('min'));\n\
-  maxValue = Math.max(maxValue, this.get('max'));\n\
-  this.set('min', minValue);\n\
-  this.set('max', maxValue);\n\
-  return {\n\
-    min: minValue,\n\
-    max: maxValue\n\
-  }\n\
-}\n\
 \n\
 Histogram.prototype.add = function(v){\n\
-  var bars = this.bars;\n\
+  var bars = this.items;\n\
   var bar = { value: v };\n\
   var count = this.get('count');\n\
   bars.push(bar)\n\
@@ -7680,7 +7614,7 @@ Histogram.prototype.add = function(v){\n\
   var r = this.getRange();\n\
   var space = this.getSpace();\n\
   bars.forEach(function(bar, i) {\n\
-    var ty = 0 - (this.height - pb - pt) * (bar.value - r.min)/(r.max - r.min);\n\
+    var ty = 0 - this.dims.h * (bar.value - r.min)/(r.max - r.min);\n\
     var tx= (i + count - bars.length) * space;\n\
     if (!bar.x) {\n\
       bar.x = tx;\n\
@@ -7692,15 +7626,16 @@ Histogram.prototype.add = function(v){\n\
   }.bind(this));\n\
   var ctx = this.ctx;\n\
   ctx.font = this.styles.fontSize + ' helvetica';\n\
-  var d = this.getSpace();\n\
   var dw = ctx.measureText('00:00:00').width + 5;\n\
   var first = this.labels[0];\n\
   var last = this.labels[this.labels.length - 1];\n\
-  var tw = this.width - pl - pr - space * 1/4;\n\
-  if(first && first.x <= d) this.labels.shift();\n\
+  var tw = this.dims.w - space * 1/4;\n\
+  if(first && first.x < space) this.labels.shift();\n\
   this.labels.forEach(function(label) {\n\
-    var x = label.x;\n\
-    label.onFrame = this.tween({x: x}, {x: x - d});\n\
+    var x = label.x || 0;\n\
+    label.c = (typeof label.c === 'undefined')? 1 : label.c + 1;\n\
+    var tx = this.dims.w - space/4 - label.c * space;\n\
+    label.onFrame = this.tween({x: x}, {x: tx});\n\
   }.bind(this));\n\
   if (this.labels.length === 0 || (last && (tw - last.x >= dw))) {\n\
     var s = currentTime();\n\
@@ -7715,7 +7650,7 @@ Histogram.prototype.add = function(v){\n\
 \n\
 Histogram.prototype.getSpace = function(){\n\
   var c = this.get('count');\n\
-  return 2 * (this.width - pl - pr)/(c * 2 - 1);\n\
+  return 2 * (this.dims.w)/(c * 2 - 1);\n\
 }\n\
 \n\
 function pad (v) {\n\
@@ -7734,7 +7669,7 @@ function labelFormat (v) {\n\
   return v.toFixed(0);\n\
 }\n\
 \n\
-Histogram.prototype.drawLabels = function() {\n\
+Histogram.prototype.drawXaxis = function() {\n\
   var ctx = this.ctx;\n\
   var space = this.getSpace();\n\
   ctx.strokeStyle = this.styles.color;\n\
@@ -7755,19 +7690,16 @@ Histogram.prototype.draw = function(delta) {\n\
   this.labels.forEach(function(label) {\n\
     label.onFrame(delta);\n\
   })\n\
-  this.bars.forEach(function(bar) {\n\
+  this.items.forEach(function(bar) {\n\
     bar.onFrame(delta);\n\
   })\n\
+  Chart.prototype.draw.call(this);\n\
   var count = this.get('count');\n\
   var color = this.get('colors')[0];\n\
   var w = this.getSpace()/2;\n\
   var ctx = this.ctx;\n\
-  ctx.font = this.styles.fontSize + ' helvetica';\n\
-  ctx.clearRect(0, - this.height, this.width, this.height);\n\
-  ctx.save();\n\
-  ctx.translate(pl, -pb);\n\
   ctx.fillStyle = color;\n\
-  this.bars.forEach(function(item) {\n\
+  this.items.forEach(function(item) {\n\
     ctx.fillRect(item.x, item.y, w, 0 - item.y);\n\
   })\n\
   //min & max\n\
@@ -7778,14 +7710,14 @@ Histogram.prototype.draw = function(delta) {\n\
   var max = this.get('max');\n\
   ctx.fillText(labelFormat(min), -2, 0);\n\
   ctx.textBaseline = 'top';\n\
-  ctx.fillText(labelFormat(max), -2 , pb + pt - this.height);\n\
+  ctx.fillText(labelFormat(max), -2 , - this.dims.h);\n\
   //bottom line\n\
   ctx.strokeStyle = this.styles.color;\n\
   ctx.beginPath();\n\
   ctx.moveTo(0, 0);\n\
-  ctx.lineTo(this.width - pl - 5 , 0);\n\
+  ctx.lineTo(this.dims.w + 5 , 0);\n\
   ctx.stroke();\n\
-  this.drawLabels();\n\
+  this.drawXaxis();\n\
   ctx.restore();\n\
 }\n\
 \n\
