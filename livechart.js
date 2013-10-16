@@ -440,12 +440,20 @@ module.exports = function(arr, fn){
 });
 require.register("component-raf/index.js", function(exports, require, module){
 
-module.exports = window.requestAnimationFrame
+/**
+ * Expose `requestAnimationFrame()`.
+ */
+
+exports = module.exports = window.requestAnimationFrame
   || window.webkitRequestAnimationFrame
   || window.mozRequestAnimationFrame
   || window.oRequestAnimationFrame
   || window.msRequestAnimationFrame
   || fallback;
+
+/**
+ * Fallback implementation.
+ */
 
 var prev = new Date().getTime();
 function fallback(fn) {
@@ -455,10 +463,22 @@ function fallback(fn) {
   prev = curr;
 }
 
+/**
+ * Cancel.
+ */
+
+var cancel = window.cancelAnimationFrame
+  || window.webkitCancelAnimationFrame
+  || window.mozCancelAnimationFrame
+  || window.oCancelAnimationFrame
+  || window.msCancelAnimationFrame;
+
+exports.cancel = function(id){
+  cancel.call(window, id);
+};
+
 });
 require.register("component-ease/index.js", function(exports, require, module){
-
-// easing functions from "Tween.js"
 
 exports.linear = function(n){
   return n;
@@ -598,34 +618,6 @@ exports.inOutBounce = function(n){
   return exports.outBounce(n * 2 - 1) * .5 + .5;
 };
 
-exports.inElastic = function(n){
-  var s, a = 0.1, p = 0.4;
-  if ( n === 0 ) return 0;
-  if ( n === 1 ) return 1;
-  if ( !a || a < 1 ) { a = 1; s = p / 4; }
-  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );
-  return - ( a * Math.pow( 2, 10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) );
-};
-
-exports.outElastic = function(n){
-  var s, a = 0.1, p = 0.4;
-  if ( n === 0 ) return 0;
-  if ( n === 1 ) return 1;
-  if ( !a || a < 1 ) { a = 1; s = p / 4; }
-  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );
-  return ( a * Math.pow( 2, - 10 * n) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) + 1 );
-};
-
-exports.inOutElastic = function(n){
-  var s, a = 0.1, p = 0.4;
-  if ( n === 0 ) return 0;
-  if ( n === 1 ) return 1;
-  if ( !a || a < 1 ) { a = 1; s = p / 4; }
-  else s = p * Math.asin( 1 / a ) / ( 2 * Math.PI );
-  if ( ( n *= 2 ) < 1 ) return - 0.5 * ( a * Math.pow( 2, 10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) );
-  return a * Math.pow( 2, -10 * ( n -= 1 ) ) * Math.sin( ( n - s ) * ( 2 * Math.PI ) / p ) * 0.5 + 1;
-};
-
 // aliases
 
 exports['in-quad'] = exports.inQuad;
@@ -655,9 +647,6 @@ exports['in-out-back'] = exports.inOutBack;
 exports['in-bounce'] = exports.inBounce;
 exports['out-bounce'] = exports.outBounce;
 exports['in-out-bounce'] = exports.inOutBounce;
-exports['in-elastic'] = exports.inElastic;
-exports['out-elastic'] = exports.outElastic;
-exports['in-out-elastic'] = exports.inOutElastic;
 
 });
 require.register("component-tween/index.js", function(exports, require, module){
@@ -1236,6 +1225,8 @@ var Emitter = require ('emitter');
 var raf = require ('raf');
 var style = require ('style');
 var Tween = require ('tween');
+var min = require ('min');
+var max = require ('max');
 
 
 var styles = window.getComputedStyle;
@@ -1246,7 +1237,8 @@ function Chart (dom) {
     color: style('.livechart .text', 'color'),
     fontSize: style('.livechart .text', 'font-size') || '10px',
     titleColor: style('.livechart .title', 'color'),
-    titleSize: style('.livechart .title', 'font-size') || '14px'
+    titleSize: style('.livechart .title', 'font-size') || '14px',
+    labelColor: style('.livechart .label', 'color')
   };
   var canvas = this.canvas  = document.createElement('canvas');
   resize.bind(dom, debounce(this.resize.bind(this)), 200);
@@ -1268,8 +1260,7 @@ Chart.prototype.resize = function() {
   this.width = canvas.width = width;
   autoscale(canvas);
   var ctx = this.ctx = canvas.getContext('2d');
-  //origin at left bottom
-  ctx.translate(0, this.height);
+  this.emit('resize');
 }
 
 Chart.prototype.start = function() {
@@ -1311,19 +1302,30 @@ Chart.prototype.drawLabels = function() {
   var ctx = this.ctx;
   var colors = this.get('colors');
   ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  var h = parseInt(this.styles.fontSize, 10) + 10;
+  ctx.setTransform(window.devicePixelRatio || 1 ,0 ,0 ,window.devicePixelRatio || 1 ,0, 0);
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.font = '24px helvetica';
+  ctx.textBaseline = 'top';
+  ctx.font = '12px helvetica';
   labels.forEach(function(text, i) {
     var color = colors[i];
     ctx.fillStyle = color;
-    drawRoundRect(ctx, 5, i * (h + 10) + 5 , 25, h );
-    ctx.fillStyle = this.styles.color;
-    ctx.fillText(text, 40, i*(h+10) + h/2 + 5);
+    drawRoundRect(ctx, 5, i * 18 + 5 , 18, 14 );
+    ctx.fillStyle = this.styles.labelColor;
+    ctx.fillText(text, 28, i* 18 + 5);
   }.bind(this));
   ctx.restore();
+}
+
+/**
+ * Called by every chart before drawing
+ * @api private
+ */
+Chart.prototype.draw = function() {
+  var ctx = this.ctx;
+  ctx.clearRect(-100, 0, this.width + 100, this.height);
+  ctx.save();
+  ctx.font = this.styles.fontSize + ' helvetica';
+  ctx.translate(this.dims.x, this.dims.y);
 }
 
 Chart.prototype.toRgb = function(hex) {
@@ -1333,6 +1335,45 @@ Chart.prototype.toRgb = function(hex) {
       g: parseInt(result[2], 16),
       b: parseInt(result[3], 16)
   } : null;
+}
+
+Chart.prototype.calcRectDimensions = function(chart) {
+  var paddings = {
+    t: getChartStyle(chart, 'paddingTop', true),
+    b: getChartStyle(chart, 'paddingBottom', true),
+    l: getChartStyle(chart, 'paddingLeft', true),
+    r: getChartStyle(chart, 'paddingRight', true)
+  }
+  this.dims = {
+    x: paddings.l,
+    y: this.height - paddings.b,
+    w: this.width - paddings.l - paddings.r,
+    h: this.height - paddings.b - paddings.t
+  }
+}
+
+Chart.prototype.calcCircleDimensions = function(chart) {
+  var padding = getChartStyle(chart, 'paddingTop', true);
+  var min = Math.min(this.height, this.width);
+  var r = (min - padding*2)/2;
+  this.dims = {
+    x: (this.width - min)/2 + padding + r,
+    y: (this.height - min)/2 + padding + r,
+    r: r
+  }
+}
+
+Chart.prototype.getRange = function(){
+  var minValue = min(this.items, 'value');
+  var maxValue = max(this.items, 'value');
+  minValue = Math.min(minValue, this.get('min'));
+  maxValue = Math.max(maxValue, this.get('max'));
+  this.set('min', minValue);
+  this.set('max', maxValue);
+  return {
+    min: minValue,
+    max: maxValue
+  }
 }
 
 function drawRoundRect (ctx, x, y , w, h) {
@@ -1350,6 +1391,19 @@ function drawRoundRect (ctx, x, y , w, h) {
   ctx.fill();
 }
 
+/**
+ * 
+ * @param {String} cn chart name
+ * @param {String} sn style name
+ * @param {Boolean} parse whether to parse int
+ * @api public
+ */
+function getChartStyle (cn, sn, parse) {
+  var v = style('.livechart .' + cn, sn);
+  v = parse? parseInt(v, 10) : v;
+  return v;
+}
+
 module.exports = Chart;
 
 });
@@ -1360,60 +1414,43 @@ var inherit = require('inherit');
 var Chart = require ('./chart');
 var style = require ('style');
 
-var pl = parseInt(style('.livechart .barchart', 'padding-left'), 10);
-var pr = parseInt(style('.livechart .barchart', 'padding-right'), 10);
-var pb = parseInt(style('.livechart .barchart', 'padding-bottom'), 10);
-var pt = parseInt(style('.livechart .barchart', 'padding-top'), 10);
-var columnWidth = parseInt(style('.livechart .barchart .item', 'width'), 10);
-
 function BarChart(parent){
+  this.on('resize', function() {
+    this.calcRectDimensions('barchart');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('max', 100);
   this.set('min', 0);
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);
-  this.bars = [];
+  this.items = [];
 }
 
 inherit(BarChart, Chart);
 
-BarChart.prototype.getRange = function(){
-  var minValue = min(this.bars, 'value');
-  var maxValue = max(this.bars, 'value');
-  minValue = Math.min(minValue, this.get('min'));
-  maxValue = Math.max(maxValue, this.get('max'));
-  this.set('min', minValue);
-  this.set('max', maxValue);
-  return {
-    min: minValue,
-    max: maxValue
-  }
-}
-
 BarChart.prototype.add = function(vs){
-  var bars = this.bars;
-  var init = (this.bars.length === 0);
-  if (init) {
+  var items = this.items;
+  if (items.length === 0) {
     vs.forEach(function(v, i) {
-      bars.push({
+      items.push({
         value: v,
         index: i
       });
     })
   }
   else {
-    bars.forEach(function(bar) {
+    items.forEach(function(bar) {
       var v = vs[bar.index];
       bar.value = v;
     })
   }
   var r = this.getRange();
-  this.bars = this.bars.sort(function(a, b) {
+  this.items = items.sort(function(a, b) {
     return b.value - a.value;
   })
   var space = this.getSpace();
-  this.bars.forEach(function(bar, i) {
+  this.items.forEach(function(bar, i) {
     var tx= (i + 1) * space;
-    var ty = 0 - (this.height - pb - pt) * (bar.value - r.min)/(r.max - r.min);
+    var ty = 0 - (this.dims.h) * (bar.value - r.min)/(r.max - r.min);
     bar.onFrame = this.tween({
       x: bar.x || tx,
       y: bar.y || 0
@@ -1426,27 +1463,25 @@ BarChart.prototype.add = function(vs){
 }
 
 BarChart.prototype.getSpace = function(){
-  var count = this.get('labels').length;
-  return (this.width - pl)/(count + 1);
+  var c = this.get('labels').length;
+  return (this.dims.w)/(c + 1);
 }
 
 BarChart.prototype.draw = function(delta) {
-  this.bars.forEach(function(item) {
+  this.items.forEach(function(item) {
     item.onFrame(delta);
   })
+  Chart.prototype.draw.call(this);
   var fontColor = this.styles.color;
   var colors = this.get('colors');
   var labels = this.get('labels');
   var ctx = this.ctx;
   var format = this.get('format');
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
-  ctx.translate(pl, -pb);
-  this.bars.forEach(function(item) {
+  var cw = parseInt(style('.livechart .barchart .item', 'width'), 10);
+  this.items.forEach(function(item) {
     var i = item.index;
     ctx.fillStyle = colors[i];
-    ctx.fillRect(item.x - columnWidth/2, item.y, columnWidth, 0 - item.y);
+    ctx.fillRect(item.x - cw/2, item.y, cw, 0 - item.y);
     //label
     ctx.fillStyle = fontColor;
     ctx.textAlign = 'center';
@@ -1462,15 +1497,15 @@ BarChart.prototype.draw = function(delta) {
   ctx.strokeStyle = fontColor;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(this.width - pl - pr, 0);
+  ctx.lineTo(this.dims.w, 0);
   ctx.stroke();
   //title
   var title = this.get('title');
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'bottom';
   ctx.textAlign = 'center';
   ctx.fillStyle = this.styles.titleColor;
   ctx.font = this.styles.titleSize + ' helvetica';
-  ctx.fillText(title, (this.width - pl -pr)/2, - this.height + pb + 5);
+  ctx.fillText(title, this.dims.w/2, - this.dims.h - 5);
   ctx.restore();
 }
 
@@ -1484,6 +1519,9 @@ var inherit = require('inherit');
 var Chart = require ('./chart');
 
 function PieChart(parent){
+  this.on('resize', function() {
+    this.calcCircleDimensions('piechart');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('colors', ['#F38630', '#E0E4CC', '#69D2E7', '#9D9B7F', '#F7464A', '#584A5E']);
   this.items = [];
@@ -1519,31 +1557,24 @@ PieChart.prototype.draw = function(delta) {
   this.items.forEach(function(item) {
     item.onFrame(delta);
   })
+  Chart.prototype.draw.call(this);
   var fontColor = this.styles.color;
   var colors = this.get('colors');
-  var w = Math.min(this.width, this.height);
-  var radius = (w - 10)/2;
-  var tx = (this.width - w)/2 + w/2;
-  var ty = (this.height - w)/2 + w/2;
+  var r = this.dims.r;
   var ctx = this.ctx;
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
   ctx.strokeStyle = '#ffffff';
-  ctx.translate(tx, - ty);
-  ctx.lineWidth = 1;
   ctx.rotate(- Math.PI/2);
   this.items.forEach(function(item, i) {
     var a = item.a;
     ctx.fillStyle = colors[i];
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(radius, 0);
-    ctx.arc(0, 0, radius, 0, a, false);
+    ctx.lineTo(r, 0);
+    ctx.arc(0, 0, r, 0, a, false);
     ctx.fill();
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(radius, 0);
+    ctx.lineTo(r, 0);
     ctx.stroke();
     ctx.rotate(a);
   });
@@ -1557,8 +1588,8 @@ PieChart.prototype.draw = function(delta) {
     var a = angle + item.a/2;
     angle += item.a;
     if (item.value < 0.05) return;
-    var x = (radius/2) * Math.sin(a);
-    var y = - (radius/2) * Math.cos(a);
+    var x = (r/2) * Math.sin(a);
+    var y = - (r/2) * Math.cos(a);
     ctx.fillText((item.value * 100).toFixed(1), x, y);
   })
   this.drawLabels();
@@ -1575,13 +1606,10 @@ var inherit = require('inherit');
 var Chart = require ('./chart');
 var style = require ('style');
 
-var pl = parseInt(style('.livechart .linechart', 'padding-left'), 10);
-var pr = parseInt(style('.livechart .linechart', 'padding-right'), 10);
-var pb = parseInt(style('.livechart .linechart', 'padding-bottom'), 10);
-var pt = parseInt(style('.livechart .linechart', 'padding-top'), 10);
-var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);
-
 function LineChart(parent){
+  this.on('resize', function() {
+    this.calcRectDimensions('linechart');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('count', 5);
   this.set('colors', ['#F7464A', '#4A46F7']);
@@ -1626,13 +1654,13 @@ LineChart.prototype.add = function(v){
 }
 
 LineChart.prototype.getSpace = function(){
-   return (this.width - pl - pr)/(this.get('count') - 1);
+   return this.dims.w/(this.get('count') - 1);
 }
 
 LineChart.prototype.getY = function(v, ps){
   var minValue = min(ps, 'value');
   var maxValue = max(ps, 'value');
-  var h = this.height - pb -2*pt;
+  var h = this.dims.h;
   if (minValue == maxValue) return - h/2;
   var y = 0 - h * (v - minValue)/(maxValue - minValue);
   return y;
@@ -1670,22 +1698,39 @@ LineChart.prototype.drawLine = function(ps, i) {
   ctx.stroke();
 }
 
+LineChart.prototype.drawXaxis = function() {
+  var count = this.get('count');
+  var ctx = this.ctx;
+  ctx.beginPath();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = this.styles.color;
+  ctx.fillStyle = this.styles.color;
+  var y = parseInt(this.styles.fontSize, 10) + 10;
+  ctx.moveTo(- this.dims.x, y);
+  ctx.lineTo(this.dims.w + 5 , y);
+  ctx.stroke();
+  var space = this.getSpace();
+  ctx.textBaseline = 'top';
+  for (var i = 0; i < count; i++) {
+    var x = i * space;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x , y + 2);
+    ctx.stroke();
+    ctx.fillText((count - 1 - i) , x, y + 2);
+  }
+}
 LineChart.prototype.draw = function(delta) {
+  var radius = parseInt(style('.livechart .linechart .point', 'width'), 10);
+  var ctx = this.ctx;
   this.series.forEach(function(ps) {
     ps.forEach(function(p) {
       p.onFrame(delta);
     });
   })
-  var count = this.get('count');
-  var ctx = this.ctx;
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
-  this.drawLabels();
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.translate(pl, -pb);
+  Chart.prototype.draw.call(this);
   ctx.textAlign = 'center';
   ctx.fillStyle = this.styles.color;
-  ctx.strokeStyle = this.styles.color;
   if (this.series.length > 1) {
     this.series[0].forEach(function(p1, i) {
       var p2 = this.series[1][i];
@@ -1698,23 +1743,6 @@ LineChart.prototype.draw = function(delta) {
       ctx.fillText(v, p.x, p.y - 5);
     })
   }
-  //bottom line
-  ctx.beginPath();
-  var ly = pb - 15;
-  var lx = - (pl - 5);
-  ctx.moveTo(lx, ly);
-  ctx.lineTo(this.width - pl - 5 , ly);
-  ctx.stroke();
-  var space = this.getSpace();
-  ctx.textBaseline = 'top';
-  for (var i = 0; i < count; i++) {
-    var x = i * space;
-    ctx.beginPath();
-    ctx.moveTo(x, ly);
-    ctx.lineTo(x , ly + 2);
-    ctx.stroke();
-    ctx.fillText((count - 1 - i) , x, ly + 2);
-  }
   this.series.forEach(function(ps, i) {
     //line
     this.drawLine(ps, i);
@@ -1725,6 +1753,8 @@ LineChart.prototype.draw = function(delta) {
       ctx.fill();
     });
   }.bind(this));
+  this.drawLabels();
+  this.drawXaxis();
   ctx.restore();
 }
 
@@ -1736,83 +1766,19 @@ var min = require ('min');
 var max = require ('max');
 var inherit = require('inherit');
 var Chart = require ('./chart');
+var LineChart = require ('./linechart');
 var style = require ('style');
 
-var pl = parseInt(style('.livechart .linechart', 'padding-left'), 10);
-var pr = parseInt(style('.livechart .linechart', 'padding-right'), 10);
-var pb = parseInt(style('.livechart .linechart', 'padding-bottom'), 10);
-var pt = parseInt(style('.livechart .linechart', 'padding-top'), 10);
-var radius = parseInt(style('.livechart .linechart', 'border-radius'), 10);
-
 function AreaChart(parent){
+  this.on('resize', function() {
+    this.calcRectDimensions('areachart');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('count', 10);
   this.set('colors', ['#DCDCDC', '#97BBCD']);
 }
 
-inherit(AreaChart, Chart);
-
-AreaChart.prototype.add = function(v){
-  v = ( v instanceof Array)? v : [v];
-  if (!this.series) {
-    this.series = v.map(function() {
-      return [];
-    });
-  }
-  v.forEach(function(d, i) {
-    this.series[i].push({
-      value: d
-    });
-  }.bind(this));
-  var count = this.get('count');
-  if (this.series[0].length > count + 1) {
-    this.series.forEach(function(ps) {
-      ps.shift();
-    });
-  }
-  var space = this.getSpace();
-  this.series.forEach(function(ps) {
-    ps.forEach(function(p, i) {
-      var v = p.value;
-      var tx = (i + count - ps.length) * space;
-      var ty = this.getY(v, ps);
-      if (!p.x) {
-        p.x = tx;
-        p.y = ty;
-        p.onFrame = function(){};
-      } else {
-        p.onFrame = this.tween({ x: p.x, y: p.y }, { x: tx, y: ty });
-      }
-    }.bind(this));
-  }.bind(this))
-  this.start();
-}
-
-AreaChart.prototype.getSpace = function(){
-   return (this.width - pl - pr)/(this.get('count') - 1);
-}
-
-AreaChart.prototype.getY = function(v, ps){
-  var minValue = min(ps, 'value');
-  var maxValue = max(ps, 'value');
-  var h = this.height - pb -2*pt;
-  if (minValue == maxValue) return - h/2;
-  var y = 0 - h * (v - minValue)/(maxValue - minValue);
-  return y;
-}
-
-AreaChart.prototype.drawValues = function(p1, p2) {
-  var ctx = this.ctx;
-  var format = this.get('format');
-  ctx.textBaseline = 'bottom';
-  var top = p1.y <= p2.y ? p1 : p2;
-  var bottom = p1.y > p2.y ? p1 : p2;
-  var tv = format(top.value);
-  var bv = format(bottom.value);
-  ctx.fillText(tv, top.x, top.y - 5);
-  ctx.textBaseline = 'top';
-  ctx.fillText(bv, bottom.x, bottom.y + 5);
-}
+inherit(AreaChart, LineChart);
 
 AreaChart.prototype.drawLine = function(ps, i) {
   var ctx = this.ctx;
@@ -1821,9 +1787,6 @@ AreaChart.prototype.drawLine = function(ps, i) {
   ctx.fillStyle = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b +', 0.5)';
   ctx.strokeStyle = color;
   ctx.beginPath();
-  //ctx.shadowColor = 'rgb(153,153,153)';
-  //ctx.shadowOffsetY = 1;
-  //ctx.shadowBlur = 10;
   ctx.lineWidth = 2;
   var space = this.getSpace();
   ps.forEach(function(p, i) {
@@ -1839,24 +1802,23 @@ AreaChart.prototype.drawLine = function(ps, i) {
     }
   })
   ctx.stroke();
-  ctx.lineTo(ps[ps.length - 1].x, 20);
-  ctx.lineTo(ps[0].x, 20);
+  var y = parseInt(this.styles.fontSize, 10) + 10;
+  ctx.lineTo(ps[ps.length - 1].x, y);
+  ctx.lineTo(ps[0].x, y);
   ctx.fill();
 }
 
 AreaChart.prototype.draw = function(delta) {
+  var radius = parseInt(style('.livechart .areachart .point', 'width'), 10);
+  var borderWidth = parseInt(style('.livechart .areachart .pointborder', 'width'), 10);
+  var borderColor = style('.livechart .areachart .pointborder', 'color');
+  var ctx = this.ctx;
   this.series.forEach(function(ps) {
     ps.forEach(function(p) {
       p.onFrame(delta);
     });
   })
-  var count = this.get('count');
-  var ctx = this.ctx;
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
-  this.drawLabels();
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.translate(pl, -pb);
+  Chart.prototype.draw.call(this);
   ctx.textAlign = 'center';
   ctx.fillStyle = this.styles.color;
   ctx.strokeStyle = this.styles.color;
@@ -1872,23 +1834,6 @@ AreaChart.prototype.draw = function(delta) {
       ctx.fillText(v, p.x, p.y - 5);
     })
   }
-  //bottom line
-  ctx.beginPath();
-  var ly = pb - 15;
-  var lx = - (pl - 5);
-  ctx.moveTo(lx, ly);
-  ctx.lineTo(this.width - pl - 5 , ly);
-  ctx.stroke();
-  var space = this.getSpace();
-  ctx.textBaseline = 'top';
-  for (var i = 0; i < count; i++) {
-    var x = i * space;
-    ctx.beginPath();
-    ctx.moveTo(x, ly);
-    ctx.lineTo(x , ly + 2);
-    ctx.stroke();
-    ctx.fillText((count - 1 - i) , x, ly + 2);
-  }
   this.series.forEach(function(ps, i) {
     //line
     this.drawLine(ps, i);
@@ -1900,12 +1845,13 @@ AreaChart.prototype.draw = function(delta) {
       ctx.arc(p.x, p.y, radius, 0, Math.PI*2, false);
       ctx.fill();
       ctx.beginPath();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = borderWidth;
       ctx.arc(p.x, p.y, radius + 1, 0, Math.PI*2, false);
       ctx.stroke();
     });
   }.bind(this));
+  this.drawXaxis();
   ctx.restore();
 }
 
@@ -1917,8 +1863,12 @@ var min = require ('min');
 var max = require ('max');
 var inherit = require('inherit');
 var Chart = require ('./chart');
+var style = require ('style');
 
 function ArcChart(parent){
+  this.on('resize', function() {
+    this.calcCircleDimensions('arcchart');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('colors', ['#97BBCD', '#DCDCDC']);
   this.items = [];
@@ -1929,7 +1879,7 @@ inherit(ArcChart, Chart);
 ArcChart.prototype.add = function(vs){
   if (typeof vs === 'number') vs = [vs];
   var items = this.items;
-  var init = (items.length === 0);
+  var init = items.length === 0;
   vs.forEach(function(v, i) {
     if (init) {
       items.push({ value: v })
@@ -1937,7 +1887,7 @@ ArcChart.prototype.add = function(vs){
       items[i].value = v;
     }
   });
-  this.items.forEach(function(item, i) {
+  items.forEach(function(item, i) {
     var a = item.value * Math.PI * 2;
     item.onFrame = this.tween({
       a: item.a || 0
@@ -1951,20 +1901,14 @@ ArcChart.prototype.add = function(vs){
 ArcChart.prototype.draw = function(delta) {
   this.items.forEach(function(item) {
     item.onFrame(delta);
-  })
-  var fontColor = this.styles.color;
+  });
+  Chart.prototype.draw.call(this);
   var colors = this.get('colors');
-  var w = Math.min(this.width, this.height);
-  var radius = (w - 10)/2;
-  var tx = (this.width - w)/2 + w/2;
-  var ty = (this.height - w)/2 + w/2;
+  var radius = this.dims.r;
   var ctx = this.ctx;
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
-  ctx.translate(tx, - ty);
-  var width = 10;
-  var gap = 5;
+  var itemClass = '.livechar .arcchart .item';
+  var width = parseInt(style(itemClass, 'width'), 10);
+  var gap = parseInt(style(itemClass, 'marginTop'), 10);
   this.items.forEach(function(item, i) {
     var a = item.a;
     var r = radius - (width + gap)*i;
@@ -2022,13 +1966,13 @@ var inherit = require('inherit');
 var Chart = require ('./chart');
 var style = require ('style');
 
-var fontSize = style('.livechart .polarchart .label', 'font-size');
-var color = style('.livechart .polarchart .label', 'color');
-var steps = [20, 40, 60, 80, 100];
-
 function PolarChart(parent){
+  this.on('resize', function() {
+    this.calcCircleDimensions('polarchart');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('colors', ['#D97041', '#C7604C', '#21323D', '#9D9B7F', '#7D4F6D', '#584A5E']);
+  this.set('steps', [20, 40, 60, 80, 100]);
   this.items = [];
 }
 
@@ -2052,21 +1996,14 @@ PolarChart.prototype.draw = function(delta) {
   this.items.forEach(function(item) {
     item.onFrame(delta);
   })
-  var fontColor = this.styles.color;
+  Chart.prototype.draw.call(this);
   var colors = this.get('colors');
   var stepAngle = Math.PI * 2/this.items.length;
-  var w = Math.min(this.width, this.height);
-  var radius = (w - 10)/2;
-  var tx = (this.width - w)/2 + w/2;
-  var ty = (this.height - w)/2 + w/2;
+  var radius = this.dims.r;
   var ctx = this.ctx;
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
-  ctx.translate(tx, - ty);
-  ctx.lineWidth = 1;
   ctx.rotate(- Math.PI/2);
-  ctx.strokeStyle = '#ffffff';
+  var borderColor = style('.livechart .polarchart .space', 'color');
+  var borderWidth = style('.livechart .polarchart .space', 'width');
   this.items.forEach(function(item, i) {
     var r = item.r;
     var rgb = this.toRgb(colors[i]);
@@ -2077,6 +2014,8 @@ PolarChart.prototype.draw = function(delta) {
     ctx.arc(0, 0, radius * r, 0, stepAngle, false);
     ctx.fill();
     ctx.beginPath();
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = borderWidth;
     ctx.moveTo(0, 0);
     ctx.lineTo(radius, 0);
     ctx.stroke();
@@ -2084,6 +2023,7 @@ PolarChart.prototype.draw = function(delta) {
   }.bind(this));
   //draw circles
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+  var steps = this.get('steps');
   steps.forEach(function(v) {
     ctx.beginPath();
     ctx.arc(0, 0, radius * v/100, 0, Math.PI*2, false);
@@ -2093,8 +2033,10 @@ PolarChart.prototype.draw = function(delta) {
   //draw text
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.font = fontSize + ' helvetica';
-  var size = parseInt(fontSize, 10);
+  var labelSize = style('.livechart .polarchart .label', 'font-size');
+  ctx.font =  labelSize+ ' helvetica';
+  var size = parseInt(labelSize, 10);
+  var color = style('.livechart .polarchart .label', 'color');
   steps.forEach(function(t) {
     var w = ctx.measureText(t).width;
     var y = - radius*t/100;
@@ -2111,44 +2053,28 @@ module.exports = PolarChart;
 
 });
 require.register("livechart/lib/histogram.js", function(exports, require, module){
-var min = require ('min');
-var max = require ('max');
 var inherit = require('inherit');
 var Chart = require ('./chart');
 var style = require ('style');
 
-var pl = parseInt(style('.livechart .histogram', 'padding-left'), 10);
-var pr = parseInt(style('.livechart .histogram', 'padding-right'), 10);
-var pb = parseInt(style('.livechart .histogram', 'padding-bottom'), 10);
-var pt = parseInt(style('.livechart .histogram', 'padding-top'), 10);
-
 function Histogram(parent){
+  this.on('resize', function() {
+    this.calcRectDimensions('histogram');
+  }.bind(this))
   Chart.call(this, parent);
   this.set('count', 50);
   this.set('max', 100);
   this.set('min', 0);
   this.set('colors', ['#69D2E7']);
-  this.bars = [];
+  this.items = [];
   this.labels = [];
 }
 
 inherit(Histogram, Chart);
 
-Histogram.prototype.getRange = function(){
-  var minValue = min(this.bars, 'value');
-  var maxValue = max(this.bars, 'value');
-  minValue = Math.min(minValue, this.get('min'));
-  maxValue = Math.max(maxValue, this.get('max'));
-  this.set('min', minValue);
-  this.set('max', maxValue);
-  return {
-    min: minValue,
-    max: maxValue
-  }
-}
 
 Histogram.prototype.add = function(v){
-  var bars = this.bars;
+  var bars = this.items;
   var bar = { value: v };
   var count = this.get('count');
   bars.push(bar)
@@ -2158,7 +2084,7 @@ Histogram.prototype.add = function(v){
   var r = this.getRange();
   var space = this.getSpace();
   bars.forEach(function(bar, i) {
-    var ty = 0 - (this.height - pb - pt) * (bar.value - r.min)/(r.max - r.min);
+    var ty = 0 - this.dims.h * (bar.value - r.min)/(r.max - r.min);
     var tx= (i + count - bars.length) * space;
     if (!bar.x) {
       bar.x = tx;
@@ -2170,15 +2096,16 @@ Histogram.prototype.add = function(v){
   }.bind(this));
   var ctx = this.ctx;
   ctx.font = this.styles.fontSize + ' helvetica';
-  var d = this.getSpace();
   var dw = ctx.measureText('00:00:00').width + 5;
   var first = this.labels[0];
   var last = this.labels[this.labels.length - 1];
-  var tw = this.width - pl - pr - space * 1/4;
-  if(first && first.x <= d) this.labels.shift();
+  var tw = this.dims.w - space * 1/4;
+  if(first && first.x < space) this.labels.shift();
   this.labels.forEach(function(label) {
-    var x = label.x;
-    label.onFrame = this.tween({x: x}, {x: x - d});
+    var x = label.x || 0;
+    label.c = (typeof label.c === 'undefined')? 1 : label.c + 1;
+    var tx = this.dims.w - space/4 - label.c * space;
+    label.onFrame = this.tween({x: x}, {x: tx});
   }.bind(this));
   if (this.labels.length === 0 || (last && (tw - last.x >= dw))) {
     var s = currentTime();
@@ -2193,7 +2120,7 @@ Histogram.prototype.add = function(v){
 
 Histogram.prototype.getSpace = function(){
   var c = this.get('count');
-  return 2 * (this.width - pl - pr)/(c * 2 - 1);
+  return 2 * (this.dims.w)/(c * 2 - 1);
 }
 
 function pad (v) {
@@ -2212,7 +2139,7 @@ function labelFormat (v) {
   return v.toFixed(0);
 }
 
-Histogram.prototype.drawLabels = function() {
+Histogram.prototype.drawXaxis = function() {
   var ctx = this.ctx;
   var space = this.getSpace();
   ctx.strokeStyle = this.styles.color;
@@ -2233,19 +2160,16 @@ Histogram.prototype.draw = function(delta) {
   this.labels.forEach(function(label) {
     label.onFrame(delta);
   })
-  this.bars.forEach(function(bar) {
+  this.items.forEach(function(bar) {
     bar.onFrame(delta);
   })
+  Chart.prototype.draw.call(this);
   var count = this.get('count');
   var color = this.get('colors')[0];
   var w = this.getSpace()/2;
   var ctx = this.ctx;
-  ctx.font = this.styles.fontSize + ' helvetica';
-  ctx.clearRect(0, - this.height, this.width, this.height);
-  ctx.save();
-  ctx.translate(pl, -pb);
   ctx.fillStyle = color;
-  this.bars.forEach(function(item) {
+  this.items.forEach(function(item) {
     ctx.fillRect(item.x, item.y, w, 0 - item.y);
   })
   //min & max
@@ -2256,14 +2180,14 @@ Histogram.prototype.draw = function(delta) {
   var max = this.get('max');
   ctx.fillText(labelFormat(min), -2, 0);
   ctx.textBaseline = 'top';
-  ctx.fillText(labelFormat(max), -2 , pb + pt - this.height);
+  ctx.fillText(labelFormat(max), -2 , - this.dims.h);
   //bottom line
   ctx.strokeStyle = this.styles.color;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(this.width - pl - 5 , 0);
+  ctx.lineTo(this.dims.w + 5 , 0);
   ctx.stroke();
-  this.drawLabels();
+  this.drawXaxis();
   ctx.restore();
 }
 
