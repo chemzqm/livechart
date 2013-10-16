@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html xmlns:wb=“http://open.weibo.com/wb”>
   <head>
     <title>livechart | Scalable canvas chart with live data</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <link rel="stylesheet" href="build/build.css">
     <link rel="stylesheet" href="resources/highlight.css" />
+    <script src="http://tjs.sjs.sinajs.cn/open/api/js/wb.js" type="text/javascript" charset="utf-8"></script>
     <style>
       body {
         padding:50px 0 0 0;
@@ -323,7 +324,6 @@ setInterval(function(){
         <pre class="code">
         <code>
   var ArcChart = require('livechart').ArcChart;
-  var parent = document.getElementById("arcchart");
   var chart = new ArcChart(parent);
   chart.set('labels', ['CPU', 'Memory']);
   setInterval(function(){
@@ -356,6 +356,7 @@ setInterval(function(){
         </pre>
       </section>
       <footer>
+      <wb:share-button appkey="6qzlQd" addition="simple" type="button" default_text="livechart，基于canvas的可伸缩动态数据展示图表库。" ralateUid="1783887241"></wb:share-button>
         <p>Made By <a href="http://weibo.com/chemzqm">@chemzqm</a> with <a href="http://component.io/">component</a></p>
         <p><strong>Mit license</strong></p>
       </footer>
