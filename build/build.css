@@ -1,8 +1,12 @@
+
 /**
  * disable selection.
  */
 
 .resizable {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
 }
 
@@ -122,28 +126,29 @@
 }
 
 
-
 @font-face {
   font-family: 'Museo Sans';
-  src: url(".//esundahl-museo-sans-500/./fonts/museosans_500-webfont.eot");
-  src: url(".//esundahl-museo-sans-500/./fonts/museosans_500-webfont.eot?#iefix") format('embedded-opentype'),
-       url(".//esundahl-museo-sans-500/./fonts/museosans_500-webfont.woff") format('woff'),
-       url(".//esundahl-museo-sans-500/./fonts/museosans_500-webfont.ttf") format('truetype'),
-       url(".//esundahl-museo-sans-500/./fonts/museosans_500-webfont.svg#museo_sans500") format('svg');
+  src: url('esundahl/museo-sans-500/master/fonts/museosans_500-webfont.eot');
+  src: url('esundahl/museo-sans-500/master/fonts/museosans_500-webfont.eot?#iefix') format('embedded-opentype'),
+       url('esundahl/museo-sans-500/master/fonts/museosans_500-webfont.woff') format('woff'),
+       url('esundahl/museo-sans-500/master/fonts/museosans_500-webfont.ttf') format('truetype'),
+       url('esundahl/museo-sans-500/master/fonts/museosans_500-webfont.svg#museo_sans500') format('svg');
   font-weight: 500;
   font-style: normal;
 }
 
+
 @font-face {
   font-family: 'Museo Sans';
-  src: url(".//esundahl-museo-sans-500-italic/./fonts/museosans_500_italic-webfont.eot");
-  src: url(".//esundahl-museo-sans-500-italic/./fonts/museosans_500_italic-webfont.eot?#iefix") format('embedded-opentype'),
-       url(".//esundahl-museo-sans-500-italic/./fonts/museosans_500_italic-webfont.woff") format('woff'),
-       url(".//esundahl-museo-sans-500-italic/./fonts/museosans_500_italic-webfont.ttf") format('truetype'),
-       url(".//esundahl-museo-sans-500-italic/./fonts/museosans_500_italic-webfont.svg#museo_sans500_italic") format('svg');
+  src: url('esundahl/museo-sans-500-italic/master/fonts/museosans_500_italic-webfont.eot');
+  src: url('esundahl/museo-sans-500-italic/master/fonts/museosans_500_italic-webfont.eot?#iefix') format('embedded-opentype'),
+       url('esundahl/museo-sans-500-italic/master/fonts/museosans_500_italic-webfont.woff') format('woff'),
+       url('esundahl/museo-sans-500-italic/master/fonts/museosans_500_italic-webfont.ttf') format('truetype'),
+       url('esundahl/museo-sans-500-italic/master/fonts/museosans_500_italic-webfont.svg#museo_sans500_italic') format('svg');
   font-weight: 500;
   font-style: italic;
 }
+
 
 .livechart .point {
   color: #E00000;
@@ -219,3 +224,6 @@
   color: #ffffff;
   width: 1px;
 }
+
+
+

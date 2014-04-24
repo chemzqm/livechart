@@ -1,39 +1,19 @@
-
 /**
- * Require the given path.
+ * Require the module at `name`.
  *
- * @param {String} path
+ * @param {String} name
  * @return {Object} exports
  * @api public
  */
 
-function require(path, parent, orig) {
-  var resolved = require.resolve(path);
+function require(name) {
+  var module = require.modules[name];
+  if (!module) throw new Error('failed to require "' + name + '"');
 
-  // lookup failed
-  if (null == resolved) {
-    orig = orig || path;
-    parent = parent || 'root';
-    var err = new Error('Failed to require "' + orig + '" from "' + parent + '"');
-    err.path = orig;
-    err.parent = parent;
-    err.require = true;
-    throw err;
-  }
-
-  var module = require.modules[resolved];
-
-  // perform real require()
-  // by invoking the module's
-  // registered function
-  if (!module._resolving && !module.exports) {
-    var mod = {};
-    mod.exports = {};
-    mod.client = mod.component = true;
-    module._resolving = true;
-    module.call(this, mod.exports, require.relative(resolved), mod);
-    delete module._resolving;
-    module.exports = mod.exports;
+  if (!('exports' in module) && typeof module.definition === 'function') {
+    module.client = module.component = true;
+    module.definition.call(this, module.exports = {}, module);
+    delete module.definition;
   }
 
   return module.exports;
@@ -46,160 +26,33 @@ function require(path, parent, orig) {
 require.modules = {};
 
 /**
- * Registered aliases.
- */
-
-require.aliases = {};
-
-/**
- * Resolve `path`.
+ * Register module at `name` with callback `definition`.
  *
- * Lookup:
- *
- *   - PATH/index.js
- *   - PATH.js
- *   - PATH
- *
- * @param {String} path
- * @return {String} path or null
- * @api private
- */
-
-require.resolve = function(path) {
-  if (path.charAt(0) === '/') path = path.slice(1);
-
-  var paths = [
-    path,
-    path + '.js',
-    path + '.json',
-    path + '/index.js',
-    path + '/index.json'
-  ];
-
-  for (var i = 0; i < paths.length; i++) {
-    var path = paths[i];
-    if (require.modules.hasOwnProperty(path)) return path;
-    if (require.aliases.hasOwnProperty(path)) return require.aliases[path];
-  }
-};
-
-/**
- * Normalize `path` relative to the current path.
- *
- * @param {String} curr
- * @param {String} path
- * @return {String}
- * @api private
- */
-
-require.normalize = function(curr, path) {
-  var segs = [];
-
-  if ('.' != path.charAt(0)) return path;
-
-  curr = curr.split('/');
-  path = path.split('/');
-
-  for (var i = 0; i < path.length; ++i) {
-    if ('..' == path[i]) {
-      curr.pop();
-    } else if ('.' != path[i] && '' != path[i]) {
-      segs.push(path[i]);
-    }
-  }
-
-  return curr.concat(segs).join('/');
-};
-
-/**
- * Register module at `path` with callback `definition`.
- *
- * @param {String} path
+ * @param {String} name
  * @param {Function} definition
  * @api private
  */
 
-require.register = function(path, definition) {
-  require.modules[path] = definition;
+require.register = function (name, definition) {
+  require.modules[name] = {
+    definition: definition
+  };
 };
 
 /**
- * Alias a module definition.
+ * Define a module's exports immediately with `exports`.
  *
- * @param {String} from
- * @param {String} to
+ * @param {String} name
+ * @param {Generic} exports
  * @api private
  */
 
-require.alias = function(from, to) {
-  if (!require.modules.hasOwnProperty(from)) {
-    throw new Error('Failed to alias "' + from + '", it does not exist');
-  }
-  require.aliases[to] = from;
-};
-
-/**
- * Return a require function relative to the `parent` path.
- *
- * @param {String} parent
- * @return {Function}
- * @api private
- */
-
-require.relative = function(parent) {
-  var p = require.normalize(parent, '..');
-
-  /**
-   * lastIndexOf helper.
-   */
-
-  function lastIndexOf(arr, obj) {
-    var i = arr.length;
-    while (i--) {
-      if (arr[i] === obj) return i;
-    }
-    return -1;
-  }
-
-  /**
-   * The relative require() itself.
-   */
-
-  function localRequire(path) {
-    var resolved = localRequire.resolve(path);
-    return require(resolved, parent, path);
-  }
-
-  /**
-   * Resolve relative to the parent.
-   */
-
-  localRequire.resolve = function(path) {
-    var c = path.charAt(0);
-    if ('/' == c) return path.slice(1);
-    if ('.' == c) return require.normalize(p, path);
-
-    // resolve deps by returning
-    // the dep in the nearest "deps"
-    // directory
-    var segs = parent.split('/');
-    var i = lastIndexOf(segs, 'deps') + 1;
-    if (!i) i = 0;
-    path = segs.slice(0, i + 1).join('/') + '/deps/' + path;
-    return path;
+require.define = function (name, exports) {
+  require.modules[name] = {
+    exports: exports
   };
-
-  /**
-   * Check if module is defined at `path`.
-   */
-
-  localRequire.exists = function(path) {
-    return require.modules.hasOwnProperty(localRequire.resolve(path));
-  };
-
-  return localRequire;
 };
-require.register("ramitos-resize/src/resize.js", Function("exports, require, module",
+require.register("ramitos~resize@master", Function("exports, module",
 "var binds = {};\n\
 \n\
 module.exports.bind = function (element, cb, ms) {\n\
@@ -219,9 +72,16 @@ module.exports.bind = function (element, cb, ms) {\n\
 module.exports.unbind = function (element, cb) {\n\
   if(!binds[element][cb]) return;\n\
   clearInterval(binds[element][cb]);\n\
-};//@ sourceURL=ramitos-resize/src/resize.js"
+};\n\
+//# sourceURL=components/ramitos/resize/master/src/resize.js"
 ));
-require.register("component-debounce/index.js", Function("exports, require, module",
+
+require.modules["ramitos-resize"] = require.modules["ramitos~resize@master"];
+require.modules["ramitos~resize"] = require.modules["ramitos~resize@master"];
+require.modules["resize"] = require.modules["ramitos~resize@master"];
+
+
+require.register("component~debounce@0.0.3", Function("exports, module",
 "/**\n\
  * Debounces a function by the given threshold.\n\
  *\n\
@@ -254,10 +114,120 @@ module.exports = function debounce(func, threshold, execAsap){\n\
     timeout = setTimeout(delayed, threshold || 100);\n\
   };\n\
 };\n\
-//@ sourceURL=component-debounce/index.js"
+\n\
+//# sourceURL=components/component/debounce/0.0.3/index.js"
 ));
-require.register("component-to-function/index.js", Function("exports, require, module",
-"\n\
+
+require.modules["component-debounce"] = require.modules["component~debounce@0.0.3"];
+require.modules["component~debounce"] = require.modules["component~debounce@0.0.3"];
+require.modules["debounce"] = require.modules["component~debounce@0.0.3"];
+
+
+require.register("component~props@1.1.2", Function("exports, module",
+"/**\n\
+ * Global Names\n\
+ */\n\
+\n\
+var globals = /\\b(this|Array|Date|Object|Math|JSON)\\b/g;\n\
+\n\
+/**\n\
+ * Return immediate identifiers parsed from `str`.\n\
+ *\n\
+ * @param {String} str\n\
+ * @param {String|Function} map function or prefix\n\
+ * @return {Array}\n\
+ * @api public\n\
+ */\n\
+\n\
+module.exports = function(str, fn){\n\
+  var p = unique(props(str));\n\
+  if (fn && 'string' == typeof fn) fn = prefixed(fn);\n\
+  if (fn) return map(str, p, fn);\n\
+  return p;\n\
+};\n\
+\n\
+/**\n\
+ * Return immediate identifiers in `str`.\n\
+ *\n\
+ * @param {String} str\n\
+ * @return {Array}\n\
+ * @api private\n\
+ */\n\
+\n\
+function props(str) {\n\
+  return str\n\
+    .replace(/\\.\\w+|\\w+ *\\(|\"[^\"]*\"|'[^']*'|\\/([^/]+)\\//g, '')\n\
+    .replace(globals, '')\n\
+    .match(/[$a-zA-Z_]\\w*/g)\n\
+    || [];\n\
+}\n\
+\n\
+/**\n\
+ * Return `str` with `props` mapped with `fn`.\n\
+ *\n\
+ * @param {String} str\n\
+ * @param {Array} props\n\
+ * @param {Function} fn\n\
+ * @return {String}\n\
+ * @api private\n\
+ */\n\
+\n\
+function map(str, props, fn) {\n\
+  var re = /\\.\\w+|\\w+ *\\(|\"[^\"]*\"|'[^']*'|\\/([^/]+)\\/|[a-zA-Z_]\\w*/g;\n\
+  return str.replace(re, function(_){\n\
+    if ('(' == _[_.length - 1]) return fn(_);\n\
+    if (!~props.indexOf(_)) return _;\n\
+    return fn(_);\n\
+  });\n\
+}\n\
+\n\
+/**\n\
+ * Return unique array.\n\
+ *\n\
+ * @param {Array} arr\n\
+ * @return {Array}\n\
+ * @api private\n\
+ */\n\
+\n\
+function unique(arr) {\n\
+  var ret = [];\n\
+\n\
+  for (var i = 0; i < arr.length; i++) {\n\
+    if (~ret.indexOf(arr[i])) continue;\n\
+    ret.push(arr[i]);\n\
+  }\n\
+\n\
+  return ret;\n\
+}\n\
+\n\
+/**\n\
+ * Map with prefix `str`.\n\
+ */\n\
+\n\
+function prefixed(str) {\n\
+  return function(_){\n\
+    return str + _;\n\
+  };\n\
+}\n\
+\n\
+//# sourceURL=components/component/props/1.1.2/index.js"
+));
+
+require.modules["component-props"] = require.modules["component~props@1.1.2"];
+require.modules["component~props"] = require.modules["component~props@1.1.2"];
+require.modules["props"] = require.modules["component~props@1.1.2"];
+
+
+require.register("component~to-function@2.0.3", Function("exports, module",
+"/**\n\
+ * Module Dependencies\n\
+ */\n\
+try {\n\
+  var expr = require(\"component~props@1.1.2\");\n\
+} catch(e) {\n\
+  var expr = require(\"component~props@1.1.2\");\n\
+}\n\
+\n\
 /**\n\
  * Expose `toFunction()`.\n\
  */\n\
@@ -327,8 +297,8 @@ function stringToFunction(str) {\n\
   // immediate such as \"> 20\"\n\
   if (/^ *\\W+/.test(str)) return new Function('_', 'return _ ' + str);\n\
 \n\
-  // properties such as \"name.first\" or \"age > 18\"\n\
-  return new Function('_', 'return _.' + str);\n\
+  // properties such as \"name.first\" or \"age > 18\" or \"age > 18 && age < 36\"\n\
+  return new Function('_', 'return ' + get(str));\n\
 }\n\
 \n\
 /**\n\
@@ -355,15 +325,44 @@ function objectToFunction(obj) {\n\
     return true;\n\
   }\n\
 }\n\
-//@ sourceURL=component-to-function/index.js"
+\n\
+/**\n\
+ * Built the getter function. Supports getter style functions\n\
+ *\n\
+ * @param {String} str\n\
+ * @return {String}\n\
+ * @api private\n\
+ */\n\
+\n\
+function get(str) {\n\
+  var props = expr(str);\n\
+  if (!props.length) return '_.' + str;\n\
+\n\
+  var val;\n\
+  for(var i = 0, prop; prop = props[i]; i++) {\n\
+    val = '_.' + prop;\n\
+    val = \"('function' == typeof \" + val + \" ? \" + val + \"() : \" + val + \")\";\n\
+    str = str.replace(new RegExp(prop, 'g'), val);\n\
+  }\n\
+\n\
+  return str;\n\
+}\n\
+\n\
+//# sourceURL=components/component/to-function/2.0.3/index.js"
 ));
-require.register("component-min/index.js", Function("exports, require, module",
+
+require.modules["component-to-function"] = require.modules["component~to-function@2.0.3"];
+require.modules["component~to-function"] = require.modules["component~to-function@2.0.3"];
+require.modules["to-function"] = require.modules["component~to-function@2.0.3"];
+
+
+require.register("component~min@1.0.0", Function("exports, module",
 "\n\
 /**\n\
  * Module dependencies.\n\
  */\n\
 \n\
-var toFunction = require('to-function');\n\
+var toFunction = require(\"component~to-function@2.0.3\");\n\
 \n\
 /**\n\
  * Return the min value in `arr` with optional callback `fn(val, i)`.\n\
@@ -396,15 +395,22 @@ module.exports = function(arr, fn){\n\
   }\n\
 \n\
   return min;\n\
-};//@ sourceURL=component-min/index.js"
+};\n\
+//# sourceURL=components/component/min/1.0.0/index.js"
 ));
-require.register("component-max/index.js", Function("exports, require, module",
+
+require.modules["component-min"] = require.modules["component~min@1.0.0"];
+require.modules["component~min"] = require.modules["component~min@1.0.0"];
+require.modules["min"] = require.modules["component~min@1.0.0"];
+
+
+require.register("component~max@1.0.0", Function("exports, module",
 "\n\
 /**\n\
  * Module dependencies.\n\
  */\n\
 \n\
-var toFunction = require('to-function');\n\
+var toFunction = require(\"component~to-function@2.0.3\");\n\
 \n\
 /**\n\
  * Return the max value in `arr` with optional callback `fn(val, i)`.\n\
@@ -416,7 +422,7 @@ var toFunction = require('to-function');\n\
  */\n\
 \n\
 module.exports = function(arr, fn){\n\
-  var max = -Infinity;\n\
+  var max = 0;\n\
 \n\
   if (fn) {\n\
     fn = toFunction(fn);\n\
@@ -435,11 +441,42 @@ module.exports = function(arr, fn){\n\
   }\n\
 \n\
   return max;\n\
-};//@ sourceURL=component-max/index.js"
+};\n\
+//# sourceURL=components/component/max/1.0.0/index.js"
 ));
-require.register("component-raf/index.js", Function("exports, require, module",
+
+require.modules["component-max"] = require.modules["component~max@1.0.0"];
+require.modules["component~max"] = require.modules["component~max@1.0.0"];
+require.modules["max"] = require.modules["component~max@1.0.0"];
+
+
+require.register("component~raf@1.0.0", Function("exports, module",
 "\n\
-/**\n\
+module.exports = window.requestAnimationFrame\n\
+  || window.webkitRequestAnimationFrame\n\
+  || window.mozRequestAnimationFrame\n\
+  || window.oRequestAnimationFrame\n\
+  || window.msRequestAnimationFrame\n\
+  || fallback;\n\
+\n\
+var prev = new Date().getTime();\n\
+function fallback(fn) {\n\
+  var curr = new Date().getTime();\n\
+  var ms = Math.max(0, 16 - (curr - prev));\n\
+  setTimeout(fn, ms);\n\
+  prev = curr;\n\
+}\n\
+\n\
+//# sourceURL=components/component/raf/1.0.0/index.js"
+));
+
+require.modules["component-raf"] = require.modules["component~raf@1.0.0"];
+require.modules["component~raf"] = require.modules["component~raf@1.0.0"];
+require.modules["raf"] = require.modules["component~raf@1.0.0"];
+
+
+require.register("component~raf@1.1.3", Function("exports, module",
+"/**\n\
  * Expose `requestAnimationFrame()`.\n\
  */\n\
 \n\
@@ -458,8 +495,9 @@ var prev = new Date().getTime();\n\
 function fallback(fn) {\n\
   var curr = new Date().getTime();\n\
   var ms = Math.max(0, 16 - (curr - prev));\n\
-  setTimeout(fn, ms);\n\
+  var req = setTimeout(fn, ms);\n\
   prev = curr;\n\
+  return req;\n\
 }\n\
 \n\
 /**\n\
@@ -470,21 +508,557 @@ var cancel = window.cancelAnimationFrame\n\
   || window.webkitCancelAnimationFrame\n\
   || window.mozCancelAnimationFrame\n\
   || window.oCancelAnimationFrame\n\
-  || window.msCancelAnimationFrame;\n\
+  || window.msCancelAnimationFrame\n\
+  || window.clearTimeout;\n\
 \n\
 exports.cancel = function(id){\n\
   cancel.call(window, id);\n\
 };\n\
-//@ sourceURL=component-raf/index.js"
+\n\
+//# sourceURL=components/component/raf/1.1.3/index.js"
 ));
-require.register("component-tween/index.js", Function("exports, require, module",
+
+require.modules["component-raf"] = require.modules["component~raf@1.1.3"];
+require.modules["component~raf"] = require.modules["component~raf@1.1.3"];
+require.modules["raf"] = require.modules["component~raf@1.1.3"];
+
+
+require.register("component~emitter@1.0.0", Function("exports, module",
+"\n\
+/**\n\
+ * Expose `Emitter`.\n\
+ */\n\
+\n\
+module.exports = Emitter;\n\
+\n\
+/**\n\
+ * Initialize a new `Emitter`.\n\
+ *\n\
+ * @api public\n\
+ */\n\
+\n\
+function Emitter(obj) {\n\
+  if (obj) return mixin(obj);\n\
+};\n\
+\n\
+/**\n\
+ * Mixin the emitter properties.\n\
+ *\n\
+ * @param {Object} obj\n\
+ * @return {Object}\n\
+ * @api private\n\
+ */\n\
+\n\
+function mixin(obj) {\n\
+  for (var key in Emitter.prototype) {\n\
+    obj[key] = Emitter.prototype[key];\n\
+  }\n\
+  return obj;\n\
+}\n\
+\n\
+/**\n\
+ * Listen on the given `event` with `fn`.\n\
+ *\n\
+ * @param {String} event\n\
+ * @param {Function} fn\n\
+ * @return {Emitter}\n\
+ * @api public\n\
+ */\n\
+\n\
+Emitter.prototype.on = function(event, fn){\n\
+  this._callbacks = this._callbacks || {};\n\
+  (this._callbacks[event] = this._callbacks[event] || [])\n\
+    .push(fn);\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Adds an `event` listener that will be invoked a single\n\
+ * time then automatically removed.\n\
+ *\n\
+ * @param {String} event\n\
+ * @param {Function} fn\n\
+ * @return {Emitter}\n\
+ * @api public\n\
+ */\n\
+\n\
+Emitter.prototype.once = function(event, fn){\n\
+  var self = this;\n\
+  this._callbacks = this._callbacks || {};\n\
+\n\
+  function on() {\n\
+    self.off(event, on);\n\
+    fn.apply(this, arguments);\n\
+  }\n\
+\n\
+  fn._off = on;\n\
+  this.on(event, on);\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Remove the given callback for `event` or all\n\
+ * registered callbacks.\n\
+ *\n\
+ * @param {String} event\n\
+ * @param {Function} fn\n\
+ * @return {Emitter}\n\
+ * @api public\n\
+ */\n\
+\n\
+Emitter.prototype.off =\n\
+Emitter.prototype.removeListener =\n\
+Emitter.prototype.removeAllListeners = function(event, fn){\n\
+  this._callbacks = this._callbacks || {};\n\
+\n\
+  // all\n\
+  if (0 == arguments.length) {\n\
+    this._callbacks = {};\n\
+    return this;\n\
+  }\n\
+\n\
+  // specific event\n\
+  var callbacks = this._callbacks[event];\n\
+  if (!callbacks) return this;\n\
+\n\
+  // remove all handlers\n\
+  if (1 == arguments.length) {\n\
+    delete this._callbacks[event];\n\
+    return this;\n\
+  }\n\
+\n\
+  // remove specific handler\n\
+  var i = callbacks.indexOf(fn._off || fn);\n\
+  if (~i) callbacks.splice(i, 1);\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Emit `event` with the given args.\n\
+ *\n\
+ * @param {String} event\n\
+ * @param {Mixed} ...\n\
+ * @return {Emitter}\n\
+ */\n\
+\n\
+Emitter.prototype.emit = function(event){\n\
+  this._callbacks = this._callbacks || {};\n\
+  var args = [].slice.call(arguments, 1)\n\
+    , callbacks = this._callbacks[event];\n\
+\n\
+  if (callbacks) {\n\
+    callbacks = callbacks.slice(0);\n\
+    for (var i = 0, len = callbacks.length; i < len; ++i) {\n\
+      callbacks[i].apply(this, args);\n\
+    }\n\
+  }\n\
+\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Return array of callbacks for `event`.\n\
+ *\n\
+ * @param {String} event\n\
+ * @return {Array}\n\
+ * @api public\n\
+ */\n\
+\n\
+Emitter.prototype.listeners = function(event){\n\
+  this._callbacks = this._callbacks || {};\n\
+  return this._callbacks[event] || [];\n\
+};\n\
+\n\
+/**\n\
+ * Check if this emitter has `event` handlers.\n\
+ *\n\
+ * @param {String} event\n\
+ * @return {Boolean}\n\
+ * @api public\n\
+ */\n\
+\n\
+Emitter.prototype.hasListeners = function(event){\n\
+  return !! this.listeners(event).length;\n\
+};\n\
+\n\
+//# sourceURL=components/component/emitter/1.0.0/index.js"
+));
+
+require.modules["component-emitter"] = require.modules["component~emitter@1.0.0"];
+require.modules["component~emitter"] = require.modules["component~emitter@1.0.0"];
+require.modules["emitter"] = require.modules["component~emitter@1.0.0"];
+
+
+require.register("component~ease@1.0.0", Function("exports, module",
+"\n\
+exports.linear = function(n){\n\
+  return n;\n\
+};\n\
+\n\
+exports.inQuad = function(n){\n\
+  return n * n;\n\
+};\n\
+\n\
+exports.outQuad = function(n){\n\
+  return n * (2 - n);\n\
+};\n\
+\n\
+exports.inOutQuad = function(n){\n\
+  n *= 2;\n\
+  if (n < 1) return 0.5 * n * n;\n\
+  return - 0.5 * (--n * (n - 2) - 1);\n\
+};\n\
+\n\
+exports.inCube = function(n){\n\
+  return n * n * n;\n\
+};\n\
+\n\
+exports.outCube = function(n){\n\
+  return --n * n * n + 1;\n\
+};\n\
+\n\
+exports.inOutCube = function(n){\n\
+  n *= 2;\n\
+  if (n < 1) return 0.5 * n * n * n;\n\
+  return 0.5 * ((n -= 2 ) * n * n + 2);\n\
+};\n\
+\n\
+exports.inQuart = function(n){\n\
+  return n * n * n * n;\n\
+};\n\
+\n\
+exports.outQuart = function(n){\n\
+  return 1 - (--n * n * n * n);\n\
+};\n\
+\n\
+exports.inOutQuart = function(n){\n\
+  n *= 2;\n\
+  if (n < 1) return 0.5 * n * n * n * n;\n\
+  return -0.5 * ((n -= 2) * n * n * n - 2);\n\
+};\n\
+\n\
+exports.inQuint = function(n){\n\
+  return n * n * n * n * n;\n\
+}\n\
+\n\
+exports.outQuint = function(n){\n\
+  return --n * n * n * n * n + 1;\n\
+}\n\
+\n\
+exports.inOutQuint = function(n){\n\
+  n *= 2;\n\
+  if (n < 1) return 0.5 * n * n * n * n * n;\n\
+  return 0.5 * ((n -= 2) * n * n * n * n + 2);\n\
+};\n\
+\n\
+exports.inSine = function(n){\n\
+  return 1 - Math.cos(n * Math.PI / 2 );\n\
+};\n\
+\n\
+exports.outSine = function(n){\n\
+  return Math.sin(n * Math.PI / 2);\n\
+};\n\
+\n\
+exports.inOutSine = function(n){\n\
+  return .5 * (1 - Math.cos(Math.PI * n));\n\
+};\n\
+\n\
+exports.inExpo = function(n){\n\
+  return 0 == n ? 0 : Math.pow(1024, n - 1);\n\
+};\n\
+\n\
+exports.outExpo = function(n){\n\
+  return 1 == n ? n : 1 - Math.pow(2, -10 * n);\n\
+};\n\
+\n\
+exports.inOutExpo = function(n){\n\
+  if (0 == n) return 0;\n\
+  if (1 == n) return 1;\n\
+  if ((n *= 2) < 1) return .5 * Math.pow(1024, n - 1);\n\
+  return .5 * (-Math.pow(2, -10 * (n - 1)) + 2);\n\
+};\n\
+\n\
+exports.inCirc = function(n){\n\
+  return 1 - Math.sqrt(1 - n * n);\n\
+};\n\
+\n\
+exports.outCirc = function(n){\n\
+  return Math.sqrt(1 - (--n * n));\n\
+};\n\
+\n\
+exports.inOutCirc = function(n){\n\
+  n *= 2\n\
+  if (n < 1) return -0.5 * (Math.sqrt(1 - n * n) - 1);\n\
+  return 0.5 * (Math.sqrt(1 - (n -= 2) * n) + 1);\n\
+};\n\
+\n\
+exports.inBack = function(n){\n\
+  var s = 1.70158;\n\
+  return n * n * (( s + 1 ) * n - s);\n\
+};\n\
+\n\
+exports.outBack = function(n){\n\
+  var s = 1.70158;\n\
+  return --n * n * ((s + 1) * n + s) + 1;\n\
+};\n\
+\n\
+exports.inOutBack = function(n){\n\
+  var s = 1.70158 * 1.525;\n\
+  if ( ( n *= 2 ) < 1 ) return 0.5 * ( n * n * ( ( s + 1 ) * n - s ) );\n\
+  return 0.5 * ( ( n -= 2 ) * n * ( ( s + 1 ) * n + s ) + 2 );\n\
+};\n\
+\n\
+exports.inBounce = function(n){\n\
+  return 1 - exports.outBounce(1 - n);\n\
+};\n\
+\n\
+exports.outBounce = function(n){\n\
+  if ( n < ( 1 / 2.75 ) ) {\n\
+    return 7.5625 * n * n;\n\
+  } else if ( n < ( 2 / 2.75 ) ) {\n\
+    return 7.5625 * ( n -= ( 1.5 / 2.75 ) ) * n + 0.75;\n\
+  } else if ( n < ( 2.5 / 2.75 ) ) {\n\
+    return 7.5625 * ( n -= ( 2.25 / 2.75 ) ) * n + 0.9375;\n\
+  } else {\n\
+    return 7.5625 * ( n -= ( 2.625 / 2.75 ) ) * n + 0.984375;\n\
+  }\n\
+};\n\
+\n\
+exports.inOutBounce = function(n){\n\
+  if (n < .5) return exports.inBounce(n * 2) * .5;\n\
+  return exports.outBounce(n * 2 - 1) * .5 + .5;\n\
+};\n\
+\n\
+// aliases\n\
+\n\
+exports['in-quad'] = exports.inQuad;\n\
+exports['out-quad'] = exports.outQuad;\n\
+exports['in-out-quad'] = exports.inOutQuad;\n\
+exports['in-cube'] = exports.inCube;\n\
+exports['out-cube'] = exports.outCube;\n\
+exports['in-out-cube'] = exports.inOutCube;\n\
+exports['in-quart'] = exports.inQuart;\n\
+exports['out-quart'] = exports.outQuart;\n\
+exports['in-out-quart'] = exports.inOutQuart;\n\
+exports['in-quint'] = exports.inQuint;\n\
+exports['out-quint'] = exports.outQuint;\n\
+exports['in-out-quint'] = exports.inOutQuint;\n\
+exports['in-sine'] = exports.inSine;\n\
+exports['out-sine'] = exports.outSine;\n\
+exports['in-out-sine'] = exports.inOutSine;\n\
+exports['in-expo'] = exports.inExpo;\n\
+exports['out-expo'] = exports.outExpo;\n\
+exports['in-out-expo'] = exports.inOutExpo;\n\
+exports['in-circ'] = exports.inCirc;\n\
+exports['out-circ'] = exports.outCirc;\n\
+exports['in-out-circ'] = exports.inOutCirc;\n\
+exports['in-back'] = exports.inBack;\n\
+exports['out-back'] = exports.outBack;\n\
+exports['in-out-back'] = exports.inOutBack;\n\
+exports['in-bounce'] = exports.inBounce;\n\
+exports['out-bounce'] = exports.outBounce;\n\
+exports['in-out-bounce'] = exports.inOutBounce;\n\
+\n\
+//# sourceURL=components/component/ease/1.0.0/index.js"
+));
+
+require.modules["component-ease"] = require.modules["component~ease@1.0.0"];
+require.modules["component~ease"] = require.modules["component~ease@1.0.0"];
+require.modules["ease"] = require.modules["component~ease@1.0.0"];
+
+
+require.register("component~tween@1.0.0", Function("exports, module",
 "\n\
 /**\n\
  * Module dependencies.\n\
  */\n\
 \n\
-var Emitter = require('emitter')\n\
-  , ease = require('ease');\n\
+var Emitter = require(\"component~emitter@1.0.0\")\n\
+  , ease = require(\"component~ease@1.0.0\");\n\
+\n\
+/**\n\
+ * Expose `Tween`.\n\
+ */\n\
+\n\
+module.exports = Tween;\n\
+\n\
+/**\n\
+ * Initialize a new `Tween` with `obj`.\n\
+ *\n\
+ * @param {Object|Array} obj\n\
+ * @api public\n\
+ */\n\
+\n\
+function Tween(obj) {\n\
+  if (!(this instanceof Tween)) return new Tween(obj);\n\
+  this._from = obj;\n\
+  this.ease('linear');\n\
+  this.duration(500);\n\
+}\n\
+\n\
+/**\n\
+ * Mixin emitter.\n\
+ */\n\
+\n\
+Emitter(Tween.prototype);\n\
+\n\
+/**\n\
+ * Reset the tween.\n\
+ *\n\
+ * @api public\n\
+ */\n\
+\n\
+Tween.prototype.reset = function(){\n\
+  this.isArray = Array.isArray(this._from);\n\
+  this._curr = clone(this._from);\n\
+  this._done = false;\n\
+  this._start = Date.now();\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Tween to `obj` and reset internal state.\n\
+ *\n\
+ *    tween.to({ x: 50, y: 100 })\n\
+ *\n\
+ * @param {Object|Array} obj\n\
+ * @return {Tween} self\n\
+ * @api public\n\
+ */\n\
+\n\
+Tween.prototype.to = function(obj){\n\
+  this.reset();\n\
+  this._to = obj;\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Set duration to `ms` [500].\n\
+ *\n\
+ * @param {Number} ms\n\
+ * @return {Tween} self\n\
+ * @api public\n\
+ */\n\
+\n\
+Tween.prototype.duration = function(ms){\n\
+  this._duration = ms;\n\
+  this._end = this._start + this._duration;\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Set easing function to `fn`.\n\
+ *\n\
+ *    tween.ease('in-out-sine')\n\
+ *\n\
+ * @param {String|Function} fn\n\
+ * @return {Tween}\n\
+ * @api public\n\
+ */\n\
+\n\
+Tween.prototype.ease = function(fn){\n\
+  fn = 'function' == typeof fn ? fn : ease[fn];\n\
+  if (!fn) throw new TypeError('invalid easing function');\n\
+  this._ease = fn;\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Perform a step.\n\
+ *\n\
+ * @return {Tween} self\n\
+ * @api private\n\
+ */\n\
+\n\
+Tween.prototype.step = function(){\n\
+  if (this._done) return;\n\
+\n\
+  // duration\n\
+  var duration = this._duration;\n\
+  var end = this._end;\n\
+  var now = Date.now();\n\
+  var delta = now - this._start;\n\
+  var done = delta >= duration;\n\
+\n\
+  // complete\n\
+  if (done) {\n\
+    this._from = this._curr;\n\
+    this._done = true;\n\
+    this.emit('end')\n\
+    return;\n\
+  }\n\
+\n\
+  // tween\n\
+  var from = this._from;\n\
+  var to = this._to;\n\
+  var curr = this._curr;\n\
+  var fn = this._ease;\n\
+  var p = (now - this._start) / duration;\n\
+  var n = fn(p);\n\
+\n\
+  // array\n\
+  if (this.isArray) {\n\
+    for (var i = 0; i < from.length; ++i) {\n\
+      curr[i] = from[i] + (to[i] - from[i]) * n;\n\
+    }\n\
+\n\
+    this._update(curr);\n\
+    return this;\n\
+  }\n\
+\n\
+  // objech\n\
+  for (var k in from) {\n\
+    curr[k] = from[k] + (to[k] - from[k]) * n;\n\
+  }\n\
+\n\
+  this._update(curr);\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Set update function to `fn` or\n\
+ * when no argument is given this performs\n\
+ * a \"step\".\n\
+ *\n\
+ * @param {Function} fn\n\
+ * @return {Tween} self\n\
+ * @api public\n\
+ */\n\
+\n\
+Tween.prototype.update = function(fn){\n\
+  if (0 == arguments.length) return this.step();\n\
+  this._update = fn;\n\
+  return this;\n\
+};\n\
+\n\
+/**\n\
+ * Clone `obj`.\n\
+ *\n\
+ * @api private\n\
+ */\n\
+\n\
+function clone(obj) {\n\
+  if (Array.isArray(obj)) return obj.slice();\n\
+  var ret = {};\n\
+  for (var key in obj) ret[key] = obj[key];\n\
+  return ret;\n\
+}\n\
+//# sourceURL=components/component/tween/1.0.0/index.js"
+));
+
+require.modules["component-tween"] = require.modules["component~tween@1.0.0"];
+require.modules["component~tween"] = require.modules["component~tween@1.0.0"];
+require.modules["tween"] = require.modules["component~tween@1.0.0"];
+
+
+require.register("component~tween@1.1.0", Function("exports, module",
+"\n\
+/**\n\
+ * Module dependencies.\n\
+ */\n\
+\n\
+var Emitter = require(\"component~emitter@1.0.0\")\n\
+  , ease = require(\"component~ease@1.0.0\");\n\
 \n\
 /**\n\
  * Expose `Tween`.\n\
@@ -667,192 +1241,32 @@ function clone(obj) {\n\
   for (var key in obj) ret[key] = obj[key];\n\
   return ret;\n\
 }\n\
-//@ sourceURL=component-tween/index.js"
+\n\
+//# sourceURL=components/component/tween/1.1.0/index.js"
 ));
-require.register("component-inherit/index.js", Function("exports, require, module",
+
+require.modules["component-tween"] = require.modules["component~tween@1.1.0"];
+require.modules["component~tween"] = require.modules["component~tween@1.1.0"];
+require.modules["tween"] = require.modules["component~tween@1.1.0"];
+
+
+require.register("component~inherit@0.0.3", Function("exports, module",
 "\n\
 module.exports = function(a, b){\n\
   var fn = function(){};\n\
   fn.prototype = b.prototype;\n\
   a.prototype = new fn;\n\
   a.prototype.constructor = a;\n\
-};//@ sourceURL=component-inherit/index.js"
+};\n\
+//# sourceURL=components/component/inherit/0.0.3/index.js"
 ));
-require.register("component-indexof/index.js", Function("exports, require, module",
-"module.exports = function(arr, obj){\n\
-  if (arr.indexOf) return arr.indexOf(obj);\n\
-  for (var i = 0; i < arr.length; ++i) {\n\
-    if (arr[i] === obj) return i;\n\
-  }\n\
-  return -1;\n\
-};//@ sourceURL=component-indexof/index.js"
-));
-require.register("component-emitter/index.js", Function("exports, require, module",
-"\n\
-/**\n\
- * Module dependencies.\n\
- */\n\
-\n\
-var index = require('indexof');\n\
-\n\
-/**\n\
- * Expose `Emitter`.\n\
- */\n\
-\n\
-module.exports = Emitter;\n\
-\n\
-/**\n\
- * Initialize a new `Emitter`.\n\
- *\n\
- * @api public\n\
- */\n\
-\n\
-function Emitter(obj) {\n\
-  if (obj) return mixin(obj);\n\
-};\n\
-\n\
-/**\n\
- * Mixin the emitter properties.\n\
- *\n\
- * @param {Object} obj\n\
- * @return {Object}\n\
- * @api private\n\
- */\n\
-\n\
-function mixin(obj) {\n\
-  for (var key in Emitter.prototype) {\n\
-    obj[key] = Emitter.prototype[key];\n\
-  }\n\
-  return obj;\n\
-}\n\
-\n\
-/**\n\
- * Listen on the given `event` with `fn`.\n\
- *\n\
- * @param {String} event\n\
- * @param {Function} fn\n\
- * @return {Emitter}\n\
- * @api public\n\
- */\n\
-\n\
-Emitter.prototype.on = function(event, fn){\n\
-  this._callbacks = this._callbacks || {};\n\
-  (this._callbacks[event] = this._callbacks[event] || [])\n\
-    .push(fn);\n\
-  return this;\n\
-};\n\
-\n\
-/**\n\
- * Adds an `event` listener that will be invoked a single\n\
- * time then automatically removed.\n\
- *\n\
- * @param {String} event\n\
- * @param {Function} fn\n\
- * @return {Emitter}\n\
- * @api public\n\
- */\n\
-\n\
-Emitter.prototype.once = function(event, fn){\n\
-  var self = this;\n\
-  this._callbacks = this._callbacks || {};\n\
-\n\
-  function on() {\n\
-    self.off(event, on);\n\
-    fn.apply(this, arguments);\n\
-  }\n\
-\n\
-  fn._off = on;\n\
-  this.on(event, on);\n\
-  return this;\n\
-};\n\
-\n\
-/**\n\
- * Remove the given callback for `event` or all\n\
- * registered callbacks.\n\
- *\n\
- * @param {String} event\n\
- * @param {Function} fn\n\
- * @return {Emitter}\n\
- * @api public\n\
- */\n\
-\n\
-Emitter.prototype.off =\n\
-Emitter.prototype.removeListener =\n\
-Emitter.prototype.removeAllListeners = function(event, fn){\n\
-  this._callbacks = this._callbacks || {};\n\
-\n\
-  // all\n\
-  if (0 == arguments.length) {\n\
-    this._callbacks = {};\n\
-    return this;\n\
-  }\n\
-\n\
-  // specific event\n\
-  var callbacks = this._callbacks[event];\n\
-  if (!callbacks) return this;\n\
-\n\
-  // remove all handlers\n\
-  if (1 == arguments.length) {\n\
-    delete this._callbacks[event];\n\
-    return this;\n\
-  }\n\
-\n\
-  // remove specific handler\n\
-  var i = index(callbacks, fn._off || fn);\n\
-  if (~i) callbacks.splice(i, 1);\n\
-  return this;\n\
-};\n\
-\n\
-/**\n\
- * Emit `event` with the given args.\n\
- *\n\
- * @param {String} event\n\
- * @param {Mixed} ...\n\
- * @return {Emitter}\n\
- */\n\
-\n\
-Emitter.prototype.emit = function(event){\n\
-  this._callbacks = this._callbacks || {};\n\
-  var args = [].slice.call(arguments, 1)\n\
-    , callbacks = this._callbacks[event];\n\
-\n\
-  if (callbacks) {\n\
-    callbacks = callbacks.slice(0);\n\
-    for (var i = 0, len = callbacks.length; i < len; ++i) {\n\
-      callbacks[i].apply(this, args);\n\
-    }\n\
-  }\n\
-\n\
-  return this;\n\
-};\n\
-\n\
-/**\n\
- * Return array of callbacks for `event`.\n\
- *\n\
- * @param {String} event\n\
- * @return {Array}\n\
- * @api public\n\
- */\n\
-\n\
-Emitter.prototype.listeners = function(event){\n\
-  this._callbacks = this._callbacks || {};\n\
-  return this._callbacks[event] || [];\n\
-};\n\
-\n\
-/**\n\
- * Check if this emitter has `event` handlers.\n\
- *\n\
- * @param {String} event\n\
- * @return {Boolean}\n\
- * @api public\n\
- */\n\
-\n\
-Emitter.prototype.hasListeners = function(event){\n\
-  return !! this.listeners(event).length;\n\
-};\n\
-//@ sourceURL=component-emitter/index.js"
-));
-require.register("visionmedia-configurable.js/index.js", Function("exports, require, module",
+
+require.modules["component-inherit"] = require.modules["component~inherit@0.0.3"];
+require.modules["component~inherit"] = require.modules["component~inherit@0.0.3"];
+require.modules["inherit"] = require.modules["component~inherit@0.0.3"];
+
+
+require.register("visionmedia~configurable.js@master", Function("exports, module",
 "\n\
 /**\n\
  * Make `obj` configurable.\n\
@@ -953,9 +1367,16 @@ module.exports = function(obj){\n\
   };\n\
 \n\
   return obj;\n\
-};//@ sourceURL=visionmedia-configurable.js/index.js"
+};\n\
+//# sourceURL=components/visionmedia/configurable.js/master/index.js"
 ));
-require.register("component-autoscale-canvas/index.js", Function("exports, require, module",
+
+require.modules["visionmedia-configurable.js"] = require.modules["visionmedia~configurable.js@master"];
+require.modules["visionmedia~configurable.js"] = require.modules["visionmedia~configurable.js@master"];
+require.modules["configurable.js"] = require.modules["visionmedia~configurable.js@master"];
+
+
+require.register("component~autoscale-canvas@0.0.3", Function("exports, module",
 "\n\
 /**\n\
  * Retina-enable the given `canvas`.\n\
@@ -976,9 +1397,16 @@ module.exports = function(canvas){\n\
     ctx.scale(ratio, ratio);\n\
   }\n\
   return canvas;\n\
-};//@ sourceURL=component-autoscale-canvas/index.js"
+};\n\
+//# sourceURL=components/component/autoscale-canvas/0.0.3/index.js"
 ));
-require.register("component-style/index.js", Function("exports, require, module",
+
+require.modules["component-autoscale-canvas"] = require.modules["component~autoscale-canvas@0.0.3"];
+require.modules["component~autoscale-canvas"] = require.modules["component~autoscale-canvas@0.0.3"];
+require.modules["autoscale-canvas"] = require.modules["component~autoscale-canvas@0.0.3"];
+
+
+require.register("component~style@master", Function("exports, module",
 "\n\
 /**\n\
  * Expose `style`.\n\
@@ -1024,13 +1452,22 @@ function style(selector, prop) {\n\
   var ret = getComputedStyle(child)[prop];\n\
   document.body.removeChild(root);\n\
   return cache[cid] = ret;\n\
-}//@ sourceURL=component-style/index.js"
+}\n\
+//# sourceURL=components/component/style/master/index.js"
 ));
-require.register("chemzqm-highlight.js/index.js", Function("exports, require, module",
-"module.exports = require('./lib/highlight.js');\n\
-//@ sourceURL=chemzqm-highlight.js/index.js"
+
+require.modules["component-style"] = require.modules["component~style@master"];
+require.modules["component~style"] = require.modules["component~style@master"];
+require.modules["style"] = require.modules["component~style@master"];
+
+
+require.register("chemzqm~highlight.js@master", Function("exports, module",
+"module.exports = require(\"chemzqm~highlight.js@master/lib/highlight.js\");\n\
+\n\
+//# sourceURL=components/chemzqm/highlight.js/master/index.js"
 ));
-require.register("chemzqm-highlight.js/lib/1c.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/1c.js", Function("exports, module",
 "module.exports = function(hljs){\n\
   var IDENT_RE_RU = '[a-zA-Zа-яА-Я][a-zA-Z0-9_а-яА-Я]*';\n\
   var OneS_KEYWORDS = 'возврат дата для если и или иначе иначеесли исключение конецесли ' +\n\
@@ -1116,9 +1553,11 @@ require.register("chemzqm-highlight.js/lib/1c.js", Function("exports, require, m
       {className: 'date', begin: '\\'\\\\d{2}\\\\.\\\\d{2}\\\\.(\\\\d{2}|\\\\d{4})\\''}\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/1c.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/1c.js"
 ));
-require.register("chemzqm-highlight.js/lib/actionscript.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/actionscript.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var IDENT_RE = '[a-zA-Z_$][a-zA-Z0-9_$]*';\n\
   var IDENT_FUNC_RETURN_TYPE_RE = '([*]|[a-zA-Z_$][a-zA-Z0-9_$]*)';\n\
@@ -1196,9 +1635,11 @@ require.register("chemzqm-highlight.js/lib/actionscript.js", Function("exports, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/actionscript.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/actionscript.js"
 ));
-require.register("chemzqm-highlight.js/lib/apache.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/apache.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var NUMBER = {className: 'number', begin: '[\\\\$%]\\\\d+'};\n\
   return {\n\
@@ -1306,9 +1747,11 @@ require.register("chemzqm-highlight.js/lib/apache.js", Function("exports, requir
       hljs.QUOTE_STRING_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/apache.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/apache.js"
 ));
-require.register("chemzqm-highlight.js/lib/applescript.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/applescript.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var STRING = hljs.inherit(hljs.QUOTE_STRING_MODE, {illegal: ''});\n\
   var TITLE = {\n\
@@ -1406,9 +1849,11 @@ require.register("chemzqm-highlight.js/lib/applescript.js", Function("exports, r
       }\n\
     ].concat(COMMENTS)\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/applescript.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/applescript.js"
 ));
-require.register("chemzqm-highlight.js/lib/avrasm.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/avrasm.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -1463,9 +1908,11 @@ require.register("chemzqm-highlight.js/lib/avrasm.js", Function("exports, requir
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/avrasm.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/avrasm.js"
 ));
-require.register("chemzqm-highlight.js/lib/axapta.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/axapta.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords: 'false int abstract private char interface boolean static null if for true ' +\n\
@@ -1504,9 +1951,11 @@ require.register("chemzqm-highlight.js/lib/axapta.js", Function("exports, requir
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/axapta.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/axapta.js"
 ));
-require.register("chemzqm-highlight.js/lib/bash.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/bash.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var BASH_LITERAL = 'true false';\n\
   var BASH_KEYWORD = 'if then else elif fi for break continue while in do done echo exit return set declare';\n\
@@ -1560,9 +2009,11 @@ require.register("chemzqm-highlight.js/lib/bash.js", Function("exports, require,
       hljs.inherit(TEST_CONDITION, {begin: '\\\\[\\\\[ ', end: ' \\\\]\\\\]'})\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/bash.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/bash.js"
 ));
-require.register("chemzqm-highlight.js/lib/brainfuck.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/brainfuck.js", Function("exports, module",
 "module.exports = function(hljs){\n\
   return {\n\
     contains: [\n\
@@ -1590,9 +2041,11 @@ require.register("chemzqm-highlight.js/lib/brainfuck.js", Function("exports, req
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/brainfuck.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/brainfuck.js"
 ));
-require.register("chemzqm-highlight.js/lib/clojure.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/clojure.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var keywords = {\n\
     built_in:\n\
@@ -1688,9 +2141,11 @@ require.register("chemzqm-highlight.js/lib/clojure.js", Function("exports, requi
       LIST\n\
     ]\n\
   }\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/clojure.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/clojure.js"
 ));
-require.register("chemzqm-highlight.js/lib/cmake.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/cmake.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -1721,9 +2176,11 @@ require.register("chemzqm-highlight.js/lib/cmake.js", Function("exports, require
       hljs.NUMBER_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/cmake.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/cmake.js"
 ));
-require.register("chemzqm-highlight.js/lib/coffeescript.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/coffeescript.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var KEYWORDS = {\n\
     keyword:\n\
@@ -1825,9 +2282,11 @@ require.register("chemzqm-highlight.js/lib/coffeescript.js", Function("exports, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/coffeescript.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/coffeescript.js"
 ));
-require.register("chemzqm-highlight.js/lib/cpp.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/cpp.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var CPP_KEYWORDS = {\n\
     keyword: 'false int float while private char catch export virtual operator sizeof ' +\n\
@@ -1871,9 +2330,11 @@ require.register("chemzqm-highlight.js/lib/cpp.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/cpp.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/cpp.js"
 ));
-require.register("chemzqm-highlight.js/lib/cs.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/cs.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords:\n\
@@ -1919,9 +2380,11 @@ require.register("chemzqm-highlight.js/lib/cs.js", Function("exports, require, m
       hljs.C_NUMBER_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/cs.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/cs.js"
 ));
-require.register("chemzqm-highlight.js/lib/css.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/css.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var FUNCTION = {\n\
     className: 'function',\n\
@@ -2013,9 +2476,11 @@ require.register("chemzqm-highlight.js/lib/css.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/css.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/css.js"
 ));
-require.register("chemzqm-highlight.js/lib/d.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/d.js", Function("exports, module",
 "module.exports = /**\n\
  * Known issues:\n\
  *\n\
@@ -2275,9 +2740,11 @@ function(hljs) {\n\
   \t\t\tD_ATTRIBUTE_MODE\n\
 \t\t]\n\
 \t};\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/d.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/d.js"
 ));
-require.register("chemzqm-highlight.js/lib/delphi.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/delphi.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var DELPHI_KEYWORDS = 'and safecall cdecl then string exports library not pascal set ' +\n\
     'virtual file in array label packed end. index while const raise for to implementation ' +\n\
@@ -2350,9 +2817,11 @@ require.register("chemzqm-highlight.js/lib/delphi.js", Function("exports, requir
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/delphi.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/delphi.js"
 ));
-require.register("chemzqm-highlight.js/lib/diff.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/diff.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     contains: [\n\
@@ -2409,9 +2878,11 @@ require.register("chemzqm-highlight.js/lib/diff.js", Function("exports, require,
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/diff.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/diff.js"
 ));
-require.register("chemzqm-highlight.js/lib/django.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/django.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
 \n\
   function allowsDjangoSyntax(mode, parent) {\n\
@@ -2492,9 +2963,11 @@ require.register("chemzqm-highlight.js/lib/django.js", Function("exports, requir
   var result = copy(hljs.LANGUAGES.xml);\n\
   result.case_insensitive = true;\n\
   return result;\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/django.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/django.js"
 ));
-require.register("chemzqm-highlight.js/lib/dos.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/dos.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -2524,9 +2997,11 @@ require.register("chemzqm-highlight.js/lib/dos.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/dos.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/dos.js"
 ));
-require.register("chemzqm-highlight.js/lib/erlang-repl.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/erlang-repl.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords: {\n\
@@ -2576,9 +3051,11 @@ require.register("chemzqm-highlight.js/lib/erlang-repl.js", Function("exports, r
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/erlang-repl.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/erlang-repl.js"
 ));
-require.register("chemzqm-highlight.js/lib/erlang.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/erlang.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var BASIC_ATOM_RE = '[a-z\\'][a-zA-Z0-9_\\']*';\n\
   var FUNCTION_NAME_RE = '(' + BASIC_ATOM_RE + ':' + BASIC_ATOM_RE + '|' + BASIC_ATOM_RE + ')';\n\
@@ -2734,9 +3211,11 @@ require.register("chemzqm-highlight.js/lib/erlang.js", Function("exports, requir
       TUPLE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/erlang.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/erlang.js"
 ));
-require.register("chemzqm-highlight.js/lib/glsl.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/glsl.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords: {\n\
@@ -2829,9 +3308,11 @@ require.register("chemzqm-highlight.js/lib/glsl.js", Function("exports, require,
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/glsl.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/glsl.js"
 ));
-require.register("chemzqm-highlight.js/lib/go.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/go.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var GO_KEYWORDS = {\n\
     keyword:\n\
@@ -2869,9 +3350,11 @@ require.register("chemzqm-highlight.js/lib/go.js", Function("exports, require, m
       hljs.C_NUMBER_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/go.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/go.js"
 ));
-require.register("chemzqm-highlight.js/lib/haskell.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/haskell.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var TYPE = {\n\
     className: 'type',\n\
@@ -2954,9 +3437,11 @@ require.register("chemzqm-highlight.js/lib/haskell.js", Function("exports, requi
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/haskell.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/haskell.js"
 ));
-require.register("chemzqm-highlight.js/lib/highlight.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/highlight.js", Function("exports, module",
 "var hljs = new function() {\n\
 \n\
   /* Utility functions */\n\
@@ -3552,63 +4037,65 @@ require.register("chemzqm-highlight.js/lib/highlight.js", Function("exports, req
     return result;\n\
   }\n\
 }();\n\
-hljs.LANGUAGES['bash'] = require('./bash.js')(hljs);\n\
-hljs.LANGUAGES['erlang'] = require('./erlang.js')(hljs);\n\
-hljs.LANGUAGES['cs'] = require('./cs.js')(hljs);\n\
-hljs.LANGUAGES['brainfuck'] = require('./brainfuck.js')(hljs);\n\
-hljs.LANGUAGES['ruby'] = require('./ruby.js')(hljs);\n\
-hljs.LANGUAGES['rust'] = require('./rust.js')(hljs);\n\
-hljs.LANGUAGES['rib'] = require('./rib.js')(hljs);\n\
-hljs.LANGUAGES['diff'] = require('./diff.js')(hljs);\n\
-hljs.LANGUAGES['javascript'] = require('./javascript.js')(hljs);\n\
-hljs.LANGUAGES['glsl'] = require('./glsl.js')(hljs);\n\
-hljs.LANGUAGES['rsl'] = require('./rsl.js')(hljs);\n\
-hljs.LANGUAGES['lua'] = require('./lua.js')(hljs);\n\
-hljs.LANGUAGES['xml'] = require('./xml.js')(hljs);\n\
-hljs.LANGUAGES['markdown'] = require('./markdown.js')(hljs);\n\
-hljs.LANGUAGES['css'] = require('./css.js')(hljs);\n\
-hljs.LANGUAGES['lisp'] = require('./lisp.js')(hljs);\n\
-hljs.LANGUAGES['profile'] = require('./profile.js')(hljs);\n\
-hljs.LANGUAGES['http'] = require('./http.js')(hljs);\n\
-hljs.LANGUAGES['java'] = require('./java.js')(hljs);\n\
-hljs.LANGUAGES['php'] = require('./php.js')(hljs);\n\
-hljs.LANGUAGES['haskell'] = require('./haskell.js')(hljs);\n\
-hljs.LANGUAGES['1c'] = require('./1c.js')(hljs);\n\
-hljs.LANGUAGES['python'] = require('./python.js')(hljs);\n\
-hljs.LANGUAGES['smalltalk'] = require('./smalltalk.js')(hljs);\n\
-hljs.LANGUAGES['tex'] = require('./tex.js')(hljs);\n\
-hljs.LANGUAGES['actionscript'] = require('./actionscript.js')(hljs);\n\
-hljs.LANGUAGES['sql'] = require('./sql.js')(hljs);\n\
-hljs.LANGUAGES['vala'] = require('./vala.js')(hljs);\n\
-hljs.LANGUAGES['ini'] = require('./ini.js')(hljs);\n\
-hljs.LANGUAGES['d'] = require('./d.js')(hljs);\n\
-hljs.LANGUAGES['axapta'] = require('./axapta.js')(hljs);\n\
-hljs.LANGUAGES['perl'] = require('./perl.js')(hljs);\n\
-hljs.LANGUAGES['scala'] = require('./scala.js')(hljs);\n\
-hljs.LANGUAGES['cmake'] = require('./cmake.js')(hljs);\n\
-hljs.LANGUAGES['objectivec'] = require('./objectivec.js')(hljs);\n\
-hljs.LANGUAGES['avrasm'] = require('./avrasm.js')(hljs);\n\
-hljs.LANGUAGES['vhdl'] = require('./vhdl.js')(hljs);\n\
-hljs.LANGUAGES['coffeescript'] = require('./coffeescript.js')(hljs);\n\
-hljs.LANGUAGES['nginx'] = require('./nginx.js')(hljs);\n\
-hljs.LANGUAGES['erlang-repl'] = require('./erlang-repl.js')(hljs);\n\
-hljs.LANGUAGES['r'] = require('./r.js')(hljs);\n\
-hljs.LANGUAGES['json'] = require('./json.js')(hljs);\n\
-hljs.LANGUAGES['django'] = require('./django.js')(hljs);\n\
-hljs.LANGUAGES['delphi'] = require('./delphi.js')(hljs);\n\
-hljs.LANGUAGES['vbscript'] = require('./vbscript.js')(hljs);\n\
-hljs.LANGUAGES['mel'] = require('./mel.js')(hljs);\n\
-hljs.LANGUAGES['dos'] = require('./dos.js')(hljs);\n\
-hljs.LANGUAGES['apache'] = require('./apache.js')(hljs);\n\
-hljs.LANGUAGES['applescript'] = require('./applescript.js')(hljs);\n\
-hljs.LANGUAGES['cpp'] = require('./cpp.js')(hljs);\n\
-hljs.LANGUAGES['matlab'] = require('./matlab.js')(hljs);\n\
-hljs.LANGUAGES['parser3'] = require('./parser3.js')(hljs);\n\
-hljs.LANGUAGES['clojure'] = require('./clojure.js')(hljs);\n\
-hljs.LANGUAGES['go'] = require('./go.js')(hljs);\n\
-module.exports = hljs;//@ sourceURL=chemzqm-highlight.js/lib/highlight.js"
+hljs.LANGUAGES['bash'] = require(\"chemzqm~highlight.js@master/lib/bash.js\")(hljs);\n\
+hljs.LANGUAGES['erlang'] = require(\"chemzqm~highlight.js@master/lib/erlang.js\")(hljs);\n\
+hljs.LANGUAGES['cs'] = require(\"chemzqm~highlight.js@master/lib/cs.js\")(hljs);\n\
+hljs.LANGUAGES['brainfuck'] = require(\"chemzqm~highlight.js@master/lib/brainfuck.js\")(hljs);\n\
+hljs.LANGUAGES['ruby'] = require(\"chemzqm~highlight.js@master/lib/ruby.js\")(hljs);\n\
+hljs.LANGUAGES['rust'] = require(\"chemzqm~highlight.js@master/lib/rust.js\")(hljs);\n\
+hljs.LANGUAGES['rib'] = require(\"chemzqm~highlight.js@master/lib/rib.js\")(hljs);\n\
+hljs.LANGUAGES['diff'] = require(\"chemzqm~highlight.js@master/lib/diff.js\")(hljs);\n\
+hljs.LANGUAGES['javascript'] = require(\"chemzqm~highlight.js@master/lib/javascript.js\")(hljs);\n\
+hljs.LANGUAGES['glsl'] = require(\"chemzqm~highlight.js@master/lib/glsl.js\")(hljs);\n\
+hljs.LANGUAGES['rsl'] = require(\"chemzqm~highlight.js@master/lib/rsl.js\")(hljs);\n\
+hljs.LANGUAGES['lua'] = require(\"chemzqm~highlight.js@master/lib/lua.js\")(hljs);\n\
+hljs.LANGUAGES['xml'] = require(\"chemzqm~highlight.js@master/lib/xml.js\")(hljs);\n\
+hljs.LANGUAGES['markdown'] = require(\"chemzqm~highlight.js@master/lib/markdown.js\")(hljs);\n\
+hljs.LANGUAGES['css'] = require(\"chemzqm~highlight.js@master/lib/css.js\")(hljs);\n\
+hljs.LANGUAGES['lisp'] = require(\"chemzqm~highlight.js@master/lib/lisp.js\")(hljs);\n\
+hljs.LANGUAGES['profile'] = require(\"chemzqm~highlight.js@master/lib/profile.js\")(hljs);\n\
+hljs.LANGUAGES['http'] = require(\"chemzqm~highlight.js@master/lib/http.js\")(hljs);\n\
+hljs.LANGUAGES['java'] = require(\"chemzqm~highlight.js@master/lib/java.js\")(hljs);\n\
+hljs.LANGUAGES['php'] = require(\"chemzqm~highlight.js@master/lib/php.js\")(hljs);\n\
+hljs.LANGUAGES['haskell'] = require(\"chemzqm~highlight.js@master/lib/haskell.js\")(hljs);\n\
+hljs.LANGUAGES['1c'] = require(\"chemzqm~highlight.js@master/lib/1c.js\")(hljs);\n\
+hljs.LANGUAGES['python'] = require(\"chemzqm~highlight.js@master/lib/python.js\")(hljs);\n\
+hljs.LANGUAGES['smalltalk'] = require(\"chemzqm~highlight.js@master/lib/smalltalk.js\")(hljs);\n\
+hljs.LANGUAGES['tex'] = require(\"chemzqm~highlight.js@master/lib/tex.js\")(hljs);\n\
+hljs.LANGUAGES['actionscript'] = require(\"chemzqm~highlight.js@master/lib/actionscript.js\")(hljs);\n\
+hljs.LANGUAGES['sql'] = require(\"chemzqm~highlight.js@master/lib/sql.js\")(hljs);\n\
+hljs.LANGUAGES['vala'] = require(\"chemzqm~highlight.js@master/lib/vala.js\")(hljs);\n\
+hljs.LANGUAGES['ini'] = require(\"chemzqm~highlight.js@master/lib/ini.js\")(hljs);\n\
+hljs.LANGUAGES['d'] = require(\"chemzqm~highlight.js@master/lib/d.js\")(hljs);\n\
+hljs.LANGUAGES['axapta'] = require(\"chemzqm~highlight.js@master/lib/axapta.js\")(hljs);\n\
+hljs.LANGUAGES['perl'] = require(\"chemzqm~highlight.js@master/lib/perl.js\")(hljs);\n\
+hljs.LANGUAGES['scala'] = require(\"chemzqm~highlight.js@master/lib/scala.js\")(hljs);\n\
+hljs.LANGUAGES['cmake'] = require(\"chemzqm~highlight.js@master/lib/cmake.js\")(hljs);\n\
+hljs.LANGUAGES['objectivec'] = require(\"chemzqm~highlight.js@master/lib/objectivec.js\")(hljs);\n\
+hljs.LANGUAGES['avrasm'] = require(\"chemzqm~highlight.js@master/lib/avrasm.js\")(hljs);\n\
+hljs.LANGUAGES['vhdl'] = require(\"chemzqm~highlight.js@master/lib/vhdl.js\")(hljs);\n\
+hljs.LANGUAGES['coffeescript'] = require(\"chemzqm~highlight.js@master/lib/coffeescript.js\")(hljs);\n\
+hljs.LANGUAGES['nginx'] = require(\"chemzqm~highlight.js@master/lib/nginx.js\")(hljs);\n\
+hljs.LANGUAGES['erlang-repl'] = require(\"chemzqm~highlight.js@master/lib/erlang-repl.js\")(hljs);\n\
+hljs.LANGUAGES['r'] = require(\"chemzqm~highlight.js@master/lib/r.js\")(hljs);\n\
+hljs.LANGUAGES['json'] = require(\"chemzqm~highlight.js@master/lib/json.js\")(hljs);\n\
+hljs.LANGUAGES['django'] = require(\"chemzqm~highlight.js@master/lib/django.js\")(hljs);\n\
+hljs.LANGUAGES['delphi'] = require(\"chemzqm~highlight.js@master/lib/delphi.js\")(hljs);\n\
+hljs.LANGUAGES['vbscript'] = require(\"chemzqm~highlight.js@master/lib/vbscript.js\")(hljs);\n\
+hljs.LANGUAGES['mel'] = require(\"chemzqm~highlight.js@master/lib/mel.js\")(hljs);\n\
+hljs.LANGUAGES['dos'] = require(\"chemzqm~highlight.js@master/lib/dos.js\")(hljs);\n\
+hljs.LANGUAGES['apache'] = require(\"chemzqm~highlight.js@master/lib/apache.js\")(hljs);\n\
+hljs.LANGUAGES['applescript'] = require(\"chemzqm~highlight.js@master/lib/applescript.js\")(hljs);\n\
+hljs.LANGUAGES['cpp'] = require(\"chemzqm~highlight.js@master/lib/cpp.js\")(hljs);\n\
+hljs.LANGUAGES['matlab'] = require(\"chemzqm~highlight.js@master/lib/matlab.js\")(hljs);\n\
+hljs.LANGUAGES['parser3'] = require(\"chemzqm~highlight.js@master/lib/parser3.js\")(hljs);\n\
+hljs.LANGUAGES['clojure'] = require(\"chemzqm~highlight.js@master/lib/clojure.js\")(hljs);\n\
+hljs.LANGUAGES['go'] = require(\"chemzqm~highlight.js@master/lib/go.js\")(hljs);\n\
+module.exports = hljs;\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/highlight.js"
 ));
-require.register("chemzqm-highlight.js/lib/http.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/http.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     illegal: '\\\\S',\n\
@@ -3644,9 +4131,11 @@ require.register("chemzqm-highlight.js/lib/http.js", Function("exports, require,
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/http.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/http.js"
 ));
-require.register("chemzqm-highlight.js/lib/ini.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/ini.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -3674,9 +4163,11 @@ require.register("chemzqm-highlight.js/lib/ini.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/ini.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/ini.js"
 ));
-require.register("chemzqm-highlight.js/lib/java.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/java.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords:\n\
@@ -3720,9 +4211,11 @@ require.register("chemzqm-highlight.js/lib/java.js", Function("exports, require,
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/java.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/java.js"
 ));
-require.register("chemzqm-highlight.js/lib/javascript.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/javascript.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords: {\n\
@@ -3781,9 +4274,11 @@ require.register("chemzqm-highlight.js/lib/javascript.js", Function("exports, re
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/javascript.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/javascript.js"
 ));
-require.register("chemzqm-highlight.js/lib/json.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/json.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var LITERALS = {literal: 'true false null'};\n\
   var TYPES = [\n\
@@ -3821,9 +4316,11 @@ require.register("chemzqm-highlight.js/lib/json.js", Function("exports, require,
     keywords: LITERALS,\n\
     illegal: '\\\\S'\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/json.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/json.js"
 ));
-require.register("chemzqm-highlight.js/lib/lisp.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/lisp.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var LISP_IDENT_RE = '[a-zA-Z_\\\\-\\\\+\\\\*\\\\/\\\\<\\\\=\\\\>\\\\&\\\\#][a-zA-Z0-9_\\\\-\\\\+\\\\*\\\\/\\\\<\\\\=\\\\>\\\\&\\\\#]*';\n\
   var LISP_SIMPLE_NUMBER_RE = '(\\\\-|\\\\+)?\\\\d+(\\\\.\\\\d+|\\\\/\\\\d+)?((d|e|f|l|s)(\\\\+|\\\\-)?\\\\d+)?';\n\
@@ -3902,9 +4399,11 @@ require.register("chemzqm-highlight.js/lib/lisp.js", Function("exports, require,
       LIST\n\
     ])\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/lisp.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/lisp.js"
 ));
-require.register("chemzqm-highlight.js/lib/lua.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/lua.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var OPENING_LONG_BRACKET = '\\\\[=*\\\\[';\n\
   var CLOSING_LONG_BRACKET = '\\\\]=*\\\\]';\n\
@@ -3964,9 +4463,11 @@ require.register("chemzqm-highlight.js/lib/lua.js", Function("exports, require, 
       }\n\
     ])\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/lua.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/lua.js"
 ));
-require.register("chemzqm-highlight.js/lib/markdown.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/markdown.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     contains: [\n\
@@ -4044,9 +4545,11 @@ require.register("chemzqm-highlight.js/lib/markdown.js", Function("exports, requ
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/markdown.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/markdown.js"
 ));
-require.register("chemzqm-highlight.js/lib/matlab.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/matlab.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
 \n\
   var COMMON_CONTAINS = [\n\
@@ -4121,9 +4624,11 @@ require.register("chemzqm-highlight.js/lib/matlab.js", Function("exports, requir
       }\n\
     ].concat(COMMON_CONTAINS)\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/matlab.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/matlab.js"
 ));
-require.register("chemzqm-highlight.js/lib/mel.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/mel.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords:\n\
@@ -4353,9 +4858,11 @@ require.register("chemzqm-highlight.js/lib/mel.js", Function("exports, require, 
       hljs.C_BLOCK_COMMENT_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/mel.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/mel.js"
 ));
-require.register("chemzqm-highlight.js/lib/nginx.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/nginx.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var VARS = [\n\
     {\n\
@@ -4449,9 +4956,11 @@ require.register("chemzqm-highlight.js/lib/nginx.js", Function("exports, require
     ],\n\
     illegal: '[^\\\\s\\\\}]'\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/nginx.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/nginx.js"
 ));
-require.register("chemzqm-highlight.js/lib/objectivec.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/objectivec.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var OBJC_KEYWORDS = {\n\
     keyword:\n\
@@ -4533,9 +5042,11 @@ require.register("chemzqm-highlight.js/lib/objectivec.js", Function("exports, re
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/objectivec.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/objectivec.js"
 ));
-require.register("chemzqm-highlight.js/lib/parser3.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/parser3.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     subLanguage: 'xml',\n\
@@ -4579,9 +5090,11 @@ require.register("chemzqm-highlight.js/lib/parser3.js", Function("exports, requi
       hljs.C_NUMBER_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/parser3.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/parser3.js"
 ));
-require.register("chemzqm-highlight.js/lib/perl.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/perl.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var PERL_KEYWORDS = 'getpwent getservent quotemeta msgrcv scalar kill dbmclose undef lc ' +\n\
     'ma syswrite tr send umask sysopen shmwrite vec qx utime local oct semctl localtime ' +\n\
@@ -4746,9 +5259,11 @@ $',\n\
     keywords: PERL_KEYWORDS,\n\
     contains: PERL_DEFAULT_CONTAINS\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/perl.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/perl.js"
 ));
-require.register("chemzqm-highlight.js/lib/php.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/php.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var VARIABLE = {\n\
     className: 'variable', begin: '\\\\$+[a-zA-Z_\\x7f-\\xff][a-zA-Z0-9_\\x7f-\\xff]*'\n\
@@ -4849,9 +5364,11 @@ require.register("chemzqm-highlight.js/lib/php.js", Function("exports, require, 
       }\n\
     ].concat(STRINGS).concat(NUMBERS)\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/php.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/php.js"
 ));
-require.register("chemzqm-highlight.js/lib/profile.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/profile.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     contains: [\n\
@@ -4894,9 +5411,11 @@ require.register("chemzqm-highlight.js/lib/profile.js", Function("exports, requi
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/profile.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/profile.js"
 ));
-require.register("chemzqm-highlight.js/lib/python.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/python.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var PROMPT = {\n\
     className: 'prompt',  begin: '^(>>>|\\\\.\\\\.\\\\.) '\n\
@@ -4981,9 +5500,11 @@ require.register("chemzqm-highlight.js/lib/python.js", Function("exports, requir
       }\n\
     ])\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/python.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/python.js"
 ));
-require.register("chemzqm-highlight.js/lib/r.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/r.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var IDENT_RE = '([a-zA-Z]|\\\\.[a-zA-Z.])[a-zA-Z0-9._]*';\n\
 \n\
@@ -5058,9 +5579,11 @@ require.register("chemzqm-highlight.js/lib/r.js", Function("exports, require, mo
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/r.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/r.js"
 ));
-require.register("chemzqm-highlight.js/lib/rib.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/rib.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords:\n\
@@ -5086,9 +5609,11 @@ require.register("chemzqm-highlight.js/lib/rib.js", Function("exports, require, 
       hljs.QUOTE_STRING_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/rib.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/rib.js"
 ));
-require.register("chemzqm-highlight.js/lib/rsl.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/rsl.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords: {\n\
@@ -5126,9 +5651,11 @@ require.register("chemzqm-highlight.js/lib/rsl.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/rsl.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/rsl.js"
 ));
-require.register("chemzqm-highlight.js/lib/ruby.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/ruby.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var RUBY_IDENT_RE = '[a-zA-Z_][a-zA-Z0-9_]*(\\\\!|\\\\?)?';\n\
   var RUBY_METHOD_RE = '[a-zA-Z_]\\\\w*[!?=]?|[-+~]\\\\@|<<|>>|=~|===?|<=>|[<>]=?|\\\\*\\\\*|[-/+%^&*~`|]|\\\\[\\\\]=?';\n\
@@ -5319,9 +5846,11 @@ $'\n\
     keywords: RUBY_KEYWORDS,\n\
     contains: RUBY_DEFAULT_CONTAINS\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/ruby.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/ruby.js"
 ));
-require.register("chemzqm-highlight.js/lib/rust.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/rust.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var TITLE = {\n\
     className: 'title',\n\
@@ -5370,9 +5899,11 @@ require.register("chemzqm-highlight.js/lib/rust.js", Function("exports, require,
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/rust.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/rust.js"
 ));
-require.register("chemzqm-highlight.js/lib/scala.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/scala.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var ANNOTATION = {\n\
     className: 'annotation', begin: '@[A-Za-z]+'\n\
@@ -5428,9 +5959,11 @@ require.register("chemzqm-highlight.js/lib/scala.js", Function("exports, require
       ANNOTATION\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/scala.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/scala.js"
 ));
-require.register("chemzqm-highlight.js/lib/smalltalk.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/smalltalk.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var VAR_IDENT_RE = '[a-z][a-zA-Z0-9_]*';\n\
   var CHAR = {\n\
@@ -5478,9 +6011,11 @@ require.register("chemzqm-highlight.js/lib/smalltalk.js", Function("exports, req
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/smalltalk.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/smalltalk.js"
 ));
-require.register("chemzqm-highlight.js/lib/sql.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/sql.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -5540,9 +6075,11 @@ require.register("chemzqm-highlight.js/lib/sql.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/sql.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/sql.js"
 ));
-require.register("chemzqm-highlight.js/lib/tex.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/tex.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var COMMAND1 = {\n\
     className: 'command',\n\
@@ -5594,9 +6131,11 @@ require.register("chemzqm-highlight.js/lib/tex.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/tex.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/tex.js"
 ));
-require.register("chemzqm-highlight.js/lib/vala.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/vala.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     keywords: {\n\
@@ -5657,9 +6196,11 @@ require.register("chemzqm-highlight.js/lib/vala.js", Function("exports, require,
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/vala.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/vala.js"
 ));
-require.register("chemzqm-highlight.js/lib/vbscript.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/vbscript.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -5693,9 +6234,11 @@ require.register("chemzqm-highlight.js/lib/vbscript.js", Function("exports, requ
       hljs.C_NUMBER_MODE\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/vbscript.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/vbscript.js"
 ));
-require.register("chemzqm-highlight.js/lib/vhdl.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/vhdl.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   return {\n\
     case_insensitive: true,\n\
@@ -5737,9 +6280,11 @@ require.register("chemzqm-highlight.js/lib/vhdl.js", Function("exports, require,
       }\n\
     ]\n\
   }; // return\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/vhdl.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/vhdl.js"
 ));
-require.register("chemzqm-highlight.js/lib/xml.js", Function("exports, require, module",
+
+require.register("chemzqm~highlight.js@master/lib/xml.js", Function("exports, module",
 "module.exports = function(hljs) {\n\
   var XML_IDENT_RE = '[A-Za-z0-9\\\\._:-]+';\n\
   var TAG_INTERNALS = {\n\
@@ -5840,10 +6385,20 @@ require.register("chemzqm-highlight.js/lib/xml.js", Function("exports, require, 
       }\n\
     ]\n\
   };\n\
-};//@ sourceURL=chemzqm-highlight.js/lib/xml.js"
+};\n\
+//# sourceURL=components/chemzqm/highlight.js/master/lib/xml.js"
 ));
-require.register("component-event/index.js", Function("exports, require, module",
-"\n\
+
+require.modules["chemzqm-highlight.js"] = require.modules["chemzqm~highlight.js@master"];
+require.modules["chemzqm~highlight.js"] = require.modules["chemzqm~highlight.js@master"];
+require.modules["highlight.js"] = require.modules["chemzqm~highlight.js@master"];
+
+
+require.register("component~event@0.1.3", Function("exports, module",
+"var bind = window.addEventListener ? 'addEventListener' : 'attachEvent',\n\
+    unbind = window.removeEventListener ? 'removeEventListener' : 'detachEvent',\n\
+    prefix = bind !== 'addEventListener' ? 'on' : '';\n\
+\n\
 /**\n\
  * Bind `el` event `type` to `fn`.\n\
  *\n\
@@ -5856,11 +6411,7 @@ require.register("component-event/index.js", Function("exports, require, module"
  */\n\
 \n\
 exports.bind = function(el, type, fn, capture){\n\
-  if (el.addEventListener) {\n\
-    el.addEventListener(type, fn, capture || false);\n\
-  } else {\n\
-    el.attachEvent('on' + type, fn);\n\
-  }\n\
+  el[bind](prefix + type, fn, capture || false);\n\
   return fn;\n\
 };\n\
 \n\
@@ -5876,23 +6427,25 @@ exports.bind = function(el, type, fn, capture){\n\
  */\n\
 \n\
 exports.unbind = function(el, type, fn, capture){\n\
-  if (el.removeEventListener) {\n\
-    el.removeEventListener(type, fn, capture || false);\n\
-  } else {\n\
-    el.detachEvent('on' + type, fn);\n\
-  }\n\
+  el[unbind](prefix + type, fn, capture || false);\n\
   return fn;\n\
 };\n\
-//@ sourceURL=component-event/index.js"
+//# sourceURL=components/component/event/0.1.3/index.js"
 ));
-require.register("ui-component-mouse/index.js", Function("exports, require, module",
+
+require.modules["component-event"] = require.modules["component~event@0.1.3"];
+require.modules["component~event"] = require.modules["component~event@0.1.3"];
+require.modules["event"] = require.modules["component~event@0.1.3"];
+
+
+require.register("ui-component~mouse@0.0.1", Function("exports, module",
 "\n\
 /**\n\
  * dependencies.\n\
  */\n\
 \n\
-var emitter = require('emitter')\n\
-  , event = require('event');\n\
+var emitter = require(\"component~emitter@1.0.0\")\n\
+  , event = require(\"component~event@0.1.3\");\n\
 \n\
 /**\n\
  * export `Mouse`\n\
@@ -5968,9 +6521,16 @@ Mouse.prototype.unbind = function(){\n\
   event.unbind(this.el, 'mousedown', this.down);\n\
   this.down = null;\n\
 };\n\
-//@ sourceURL=ui-component-mouse/index.js"
+\n\
+//# sourceURL=components/ui-component/mouse/0.0.1/index.js"
 ));
-require.register("component-domify/index.js", Function("exports, require, module",
+
+require.modules["ui-component-mouse"] = require.modules["ui-component~mouse@0.0.1"];
+require.modules["ui-component~mouse"] = require.modules["ui-component~mouse@0.0.1"];
+require.modules["mouse"] = require.modules["ui-component~mouse@0.0.1"];
+
+
+require.register("component~domify@1.2.2", Function("exports, module",
 "\n\
 /**\n\
  * Expose `parse`.\n\
@@ -5983,20 +6543,32 @@ module.exports = parse;\n\
  */\n\
 \n\
 var map = {\n\
-  option: [1, '<select multiple=\"multiple\">', '</select>'],\n\
-  optgroup: [1, '<select multiple=\"multiple\">', '</select>'],\n\
   legend: [1, '<fieldset>', '</fieldset>'],\n\
-  thead: [1, '<table>', '</table>'],\n\
-  tbody: [1, '<table>', '</table>'],\n\
-  tfoot: [1, '<table>', '</table>'],\n\
-  colgroup: [1, '<table>', '</table>'],\n\
-  caption: [1, '<table>', '</table>'],\n\
   tr: [2, '<table><tbody>', '</tbody></table>'],\n\
-  td: [3, '<table><tbody><tr>', '</tr></tbody></table>'],\n\
-  th: [3, '<table><tbody><tr>', '</tr></tbody></table>'],\n\
   col: [2, '<table><tbody></tbody><colgroup>', '</colgroup></table>'],\n\
   _default: [0, '', '']\n\
 };\n\
+\n\
+map.td =\n\
+map.th = [3, '<table><tbody><tr>', '</tr></tbody></table>'];\n\
+\n\
+map.option =\n\
+map.optgroup = [1, '<select multiple=\"multiple\">', '</select>'];\n\
+\n\
+map.thead =\n\
+map.tbody =\n\
+map.colgroup =\n\
+map.caption =\n\
+map.tfoot = [1, '<table>', '</table>'];\n\
+\n\
+map.text =\n\
+map.circle =\n\
+map.ellipse =\n\
+map.line =\n\
+map.path =\n\
+map.polygon =\n\
+map.polyline =\n\
+map.rect = [1, '<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">','</svg>'];\n\
 \n\
 /**\n\
  * Parse `html` and return the children.\n\
@@ -6008,12 +6580,13 @@ var map = {\n\
 \n\
 function parse(html) {\n\
   if ('string' != typeof html) throw new TypeError('String expected');\n\
+  \n\
+  // tag name\n\
+  var m = /<([\\w:]+)/.exec(html);\n\
+  if (!m) return document.createTextNode(html);\n\
 \n\
   html = html.replace(/^\\s+|\\s+$/g, ''); // Remove leading/trailing whitespace\n\
 \n\
-  // tag name\n\
-  var m = /<([\\w:]+)/.exec(html);\n\
-  if (!m) throw new Error('No elements were generated.');\n\
   var tag = m[1];\n\
 \n\
   // body support\n\
@@ -6032,26 +6605,50 @@ function parse(html) {\n\
   el.innerHTML = prefix + html + suffix;\n\
   while (depth--) el = el.lastChild;\n\
 \n\
-  var els = el.children;\n\
-  if (1 == els.length) {\n\
-    return el.removeChild(els[0]);\n\
+  // one element\n\
+  if (el.firstChild == el.lastChild) {\n\
+    return el.removeChild(el.firstChild);\n\
   }\n\
 \n\
+  // several elements\n\
   var fragment = document.createDocumentFragment();\n\
-  while (els.length) {\n\
-    fragment.appendChild(el.removeChild(els[0]));\n\
+  while (el.firstChild) {\n\
+    fragment.appendChild(el.removeChild(el.firstChild));\n\
   }\n\
 \n\
   return fragment;\n\
 }\n\
-//@ sourceURL=component-domify/index.js"
+\n\
+//# sourceURL=components/component/domify/1.2.2/index.js"
 ));
-require.register("component-classes/index.js", Function("exports, require, module",
+
+require.modules["component-domify"] = require.modules["component~domify@1.2.2"];
+require.modules["component~domify"] = require.modules["component~domify@1.2.2"];
+require.modules["domify"] = require.modules["component~domify@1.2.2"];
+
+
+require.register("component~indexof@0.0.3", Function("exports, module",
+"module.exports = function(arr, obj){\n\
+  if (arr.indexOf) return arr.indexOf(obj);\n\
+  for (var i = 0; i < arr.length; ++i) {\n\
+    if (arr[i] === obj) return i;\n\
+  }\n\
+  return -1;\n\
+};\n\
+//# sourceURL=components/component/indexof/0.0.3/index.js"
+));
+
+require.modules["component-indexof"] = require.modules["component~indexof@0.0.3"];
+require.modules["component~indexof"] = require.modules["component~indexof@0.0.3"];
+require.modules["indexof"] = require.modules["component~indexof@0.0.3"];
+
+
+require.register("component~classes@1.2.1", Function("exports, module",
 "/**\n\
  * Module dependencies.\n\
  */\n\
 \n\
-var index = require('indexof');\n\
+var index = require(\"component~indexof@0.0.3\");\n\
 \n\
 /**\n\
  * Whitespace regexp.\n\
@@ -6161,26 +6758,45 @@ ClassList.prototype.removeMatching = function(re){\n\
 };\n\
 \n\
 /**\n\
- * Toggle class `name`.\n\
+ * Toggle class `name`, can force state via `force`.\n\
+ *\n\
+ * For browsers that support classList, but do not support `force` yet,\n\
+ * the mistake will be detected and corrected.\n\
  *\n\
  * @param {String} name\n\
+ * @param {Boolean} force\n\
  * @return {ClassList}\n\
  * @api public\n\
  */\n\
 \n\
-ClassList.prototype.toggle = function(name){\n\
+ClassList.prototype.toggle = function(name, force){\n\
   // classList\n\
   if (this.list) {\n\
-    this.list.toggle(name);\n\
+    if (\"undefined\" !== typeof force) {\n\
+      if (force !== this.list.toggle(name, force)) {\n\
+        this.list.toggle(name); // toggle again to correct\n\
+      }\n\
+    } else {\n\
+      this.list.toggle(name);\n\
+    }\n\
     return this;\n\
   }\n\
 \n\
   // fallback\n\
-  if (this.has(name)) {\n\
-    this.remove(name);\n\
+  if (\"undefined\" !== typeof force) {\n\
+    if (!force) {\n\
+      this.remove(name);\n\
+    } else {\n\
+      this.add(name);\n\
+    }\n\
   } else {\n\
-    this.add(name);\n\
+    if (this.has(name)) {\n\
+      this.remove(name);\n\
+    } else {\n\
+      this.add(name);\n\
+    }\n\
   }\n\
+\n\
   return this;\n\
 };\n\
 \n\
@@ -6212,9 +6828,16 @@ ClassList.prototype.contains = function(name){\n\
     ? this.list.contains(name)\n\
     : !! ~index(this.array(), name);\n\
 };\n\
-//@ sourceURL=component-classes/index.js"
+\n\
+//# sourceURL=components/component/classes/1.2.1/index.js"
 ));
-require.register("yields-merge/index.js", Function("exports, require, module",
+
+require.modules["component-classes"] = require.modules["component~classes@1.2.1"];
+require.modules["component~classes"] = require.modules["component~classes@1.2.1"];
+require.modules["classes"] = require.modules["component~classes@1.2.1"];
+
+
+require.register("yields~merge@1.0.0", Function("exports, module",
 "\n\
 /**\n\
  * merge `b`'s properties with `a`'s.\n\
@@ -6234,22 +6857,29 @@ module.exports = function (a, b) {\n\
   for (var k in b) a[k] = b[k];\n\
   return a;\n\
 };\n\
-//@ sourceURL=yields-merge/index.js"
+\n\
+//# sourceURL=components/yields/merge/1.0.0/index.js"
 ));
-require.register("ui-component-resizable/index.js", Function("exports, require, module",
+
+require.modules["yields-merge"] = require.modules["yields~merge@1.0.0"];
+require.modules["yields~merge"] = require.modules["yields~merge@1.0.0"];
+require.modules["merge"] = require.modules["yields~merge@1.0.0"];
+
+
+require.register("ui-component~resizable@0.1.0", Function("exports, module",
 "\n\
 /**\n\
  * dependencies.\n\
  */\n\
 \n\
-var configurable = require('configurable.js')\n\
-  , emitter = require('emitter')\n\
-  , classes = require('classes')\n\
-  , mouse = require('mouse')\n\
-  , domify = require('domify')\n\
-  , tpl = require('./template')\n\
-  , resize = require('./resize')\n\
-  , merge = require('merge');\n\
+var configurable = require(\"visionmedia~configurable.js@master\")\n\
+  , emitter = require(\"component~emitter@1.0.0\")\n\
+  , classes = require(\"component~classes@1.2.1\")\n\
+  , mouse = require(\"ui-component~mouse@0.0.1\")\n\
+  , domify = require(\"component~domify@1.2.2\")\n\
+  , tpl = require(\"ui-component~resizable@0.1.0/template.js\")\n\
+  , resize = require(\"ui-component~resizable@0.1.0/resize.js\")\n\
+  , merge = require(\"yields~merge@1.0.0\");\n\
 \n\
 /**\n\
  * export `Resizable`.\n\
@@ -6389,19 +7019,23 @@ Resizable.prototype.destroy = function(){\n\
     }\n\
   }\n\
 };\n\
-//@ sourceURL=ui-component-resizable/index.js"
+\n\
+//# sourceURL=components/ui-component/resizable/0.1.0/index.js"
 ));
-require.register("ui-component-resizable/template.js", Function("exports, require, module",
+
+require.register("ui-component~resizable@0.1.0/template.js", Function("exports, module",
 "module.exports = '<span class=\\'resizable-handle\\'></span>\\n\
-';//@ sourceURL=ui-component-resizable/template.js"
+';\n\
+//# sourceURL=components/ui-component/resizable/0.1.0/template.js"
 ));
-require.register("ui-component-resizable/resize.js", Function("exports, require, module",
+
+require.register("ui-component~resizable@0.1.0/resize.js", Function("exports, module",
 "\n\
 /**\n\
  * dependencies.\n\
  */\n\
 \n\
-var merge = require('merge');\n\
+var merge = require(\"yields~merge@1.0.0\");\n\
 \n\
 /**\n\
  * east\n\
@@ -6488,16 +7122,23 @@ exports.nw = function(){\n\
     exports.w.apply(this, arguments)\n\
   );\n\
 };\n\
-//@ sourceURL=ui-component-resizable/resize.js"
+\n\
+//# sourceURL=components/ui-component/resizable/0.1.0/resize.js"
 ));
-require.register("component-scroll-to/index.js", Function("exports, require, module",
+
+require.modules["ui-component-resizable"] = require.modules["ui-component~resizable@0.1.0"];
+require.modules["ui-component~resizable"] = require.modules["ui-component~resizable@0.1.0"];
+require.modules["resizable"] = require.modules["ui-component~resizable@0.1.0"];
+
+
+require.register("component~scroll-to@0.0.1", Function("exports, module",
 "\n\
 /**\n\
  * Module dependencies.\n\
  */\n\
 \n\
-var Tween = require('tween');\n\
-var raf = require('raf');\n\
+var Tween = require(\"component~tween@1.0.0\");\n\
+var raf = require(\"component~raf@1.0.0\");\n\
 \n\
 /**\n\
  * Expose `scrollTo`.\n\
@@ -6556,189 +7197,23 @@ function scroll() {\n\
   var x = window.pageXOffset || document.documentElement.scrollLeft;\n\
   return { top: y, left: x };\n\
 }\n\
-//@ sourceURL=component-scroll-to/index.js"
-));
-require.register("component-ease/index.js", Function("exports, require, module",
-"\n\
-exports.linear = function(n){\n\
-  return n;\n\
-};\n\
 \n\
-exports.inQuad = function(n){\n\
-  return n * n;\n\
-};\n\
-\n\
-exports.outQuad = function(n){\n\
-  return n * (2 - n);\n\
-};\n\
-\n\
-exports.inOutQuad = function(n){\n\
-  n *= 2;\n\
-  if (n < 1) return 0.5 * n * n;\n\
-  return - 0.5 * (--n * (n - 2) - 1);\n\
-};\n\
-\n\
-exports.inCube = function(n){\n\
-  return n * n * n;\n\
-};\n\
-\n\
-exports.outCube = function(n){\n\
-  return --n * n * n + 1;\n\
-};\n\
-\n\
-exports.inOutCube = function(n){\n\
-  n *= 2;\n\
-  if (n < 1) return 0.5 * n * n * n;\n\
-  return 0.5 * ((n -= 2 ) * n * n + 2);\n\
-};\n\
-\n\
-exports.inQuart = function(n){\n\
-  return n * n * n * n;\n\
-};\n\
-\n\
-exports.outQuart = function(n){\n\
-  return 1 - (--n * n * n * n);\n\
-};\n\
-\n\
-exports.inOutQuart = function(n){\n\
-  n *= 2;\n\
-  if (n < 1) return 0.5 * n * n * n * n;\n\
-  return -0.5 * ((n -= 2) * n * n * n - 2);\n\
-};\n\
-\n\
-exports.inQuint = function(n){\n\
-  return n * n * n * n * n;\n\
-}\n\
-\n\
-exports.outQuint = function(n){\n\
-  return --n * n * n * n * n + 1;\n\
-}\n\
-\n\
-exports.inOutQuint = function(n){\n\
-  n *= 2;\n\
-  if (n < 1) return 0.5 * n * n * n * n * n;\n\
-  return 0.5 * ((n -= 2) * n * n * n * n + 2);\n\
-};\n\
-\n\
-exports.inSine = function(n){\n\
-  return 1 - Math.cos(n * Math.PI / 2 );\n\
-};\n\
-\n\
-exports.outSine = function(n){\n\
-  return Math.sin(n * Math.PI / 2);\n\
-};\n\
-\n\
-exports.inOutSine = function(n){\n\
-  return .5 * (1 - Math.cos(Math.PI * n));\n\
-};\n\
-\n\
-exports.inExpo = function(n){\n\
-  return 0 == n ? 0 : Math.pow(1024, n - 1);\n\
-};\n\
-\n\
-exports.outExpo = function(n){\n\
-  return 1 == n ? n : 1 - Math.pow(2, -10 * n);\n\
-};\n\
-\n\
-exports.inOutExpo = function(n){\n\
-  if (0 == n) return 0;\n\
-  if (1 == n) return 1;\n\
-  if ((n *= 2) < 1) return .5 * Math.pow(1024, n - 1);\n\
-  return .5 * (-Math.pow(2, -10 * (n - 1)) + 2);\n\
-};\n\
-\n\
-exports.inCirc = function(n){\n\
-  return 1 - Math.sqrt(1 - n * n);\n\
-};\n\
-\n\
-exports.outCirc = function(n){\n\
-  return Math.sqrt(1 - (--n * n));\n\
-};\n\
-\n\
-exports.inOutCirc = function(n){\n\
-  n *= 2\n\
-  if (n < 1) return -0.5 * (Math.sqrt(1 - n * n) - 1);\n\
-  return 0.5 * (Math.sqrt(1 - (n -= 2) * n) + 1);\n\
-};\n\
-\n\
-exports.inBack = function(n){\n\
-  var s = 1.70158;\n\
-  return n * n * (( s + 1 ) * n - s);\n\
-};\n\
-\n\
-exports.outBack = function(n){\n\
-  var s = 1.70158;\n\
-  return --n * n * ((s + 1) * n + s) + 1;\n\
-};\n\
-\n\
-exports.inOutBack = function(n){\n\
-  var s = 1.70158 * 1.525;\n\
-  if ( ( n *= 2 ) < 1 ) return 0.5 * ( n * n * ( ( s + 1 ) * n - s ) );\n\
-  return 0.5 * ( ( n -= 2 ) * n * ( ( s + 1 ) * n + s ) + 2 );\n\
-};\n\
-\n\
-exports.inBounce = function(n){\n\
-  return 1 - exports.outBounce(1 - n);\n\
-};\n\
-\n\
-exports.outBounce = function(n){\n\
-  if ( n < ( 1 / 2.75 ) ) {\n\
-    return 7.5625 * n * n;\n\
-  } else if ( n < ( 2 / 2.75 ) ) {\n\
-    return 7.5625 * ( n -= ( 1.5 / 2.75 ) ) * n + 0.75;\n\
-  } else if ( n < ( 2.5 / 2.75 ) ) {\n\
-    return 7.5625 * ( n -= ( 2.25 / 2.75 ) ) * n + 0.9375;\n\
-  } else {\n\
-    return 7.5625 * ( n -= ( 2.625 / 2.75 ) ) * n + 0.984375;\n\
-  }\n\
-};\n\
-\n\
-exports.inOutBounce = function(n){\n\
-  if (n < .5) return exports.inBounce(n * 2) * .5;\n\
-  return exports.outBounce(n * 2 - 1) * .5 + .5;\n\
-};\n\
-\n\
-// aliases\n\
-\n\
-exports['in-quad'] = exports.inQuad;\n\
-exports['out-quad'] = exports.outQuad;\n\
-exports['in-out-quad'] = exports.inOutQuad;\n\
-exports['in-cube'] = exports.inCube;\n\
-exports['out-cube'] = exports.outCube;\n\
-exports['in-out-cube'] = exports.inOutCube;\n\
-exports['in-quart'] = exports.inQuart;\n\
-exports['out-quart'] = exports.outQuart;\n\
-exports['in-out-quart'] = exports.inOutQuart;\n\
-exports['in-quint'] = exports.inQuint;\n\
-exports['out-quint'] = exports.outQuint;\n\
-exports['in-out-quint'] = exports.inOutQuint;\n\
-exports['in-sine'] = exports.inSine;\n\
-exports['out-sine'] = exports.outSine;\n\
-exports['in-out-sine'] = exports.inOutSine;\n\
-exports['in-expo'] = exports.inExpo;\n\
-exports['out-expo'] = exports.outExpo;\n\
-exports['in-out-expo'] = exports.inOutExpo;\n\
-exports['in-circ'] = exports.inCirc;\n\
-exports['out-circ'] = exports.outCirc;\n\
-exports['in-out-circ'] = exports.inOutCirc;\n\
-exports['in-back'] = exports.inBack;\n\
-exports['out-back'] = exports.outBack;\n\
-exports['in-out-back'] = exports.inOutBack;\n\
-exports['in-bounce'] = exports.inBounce;\n\
-exports['out-bounce'] = exports.outBounce;\n\
-exports['in-out-bounce'] = exports.inOutBounce;\n\
-//@ sourceURL=component-ease/index.js"
+//# sourceURL=components/component/scroll-to/0.0.1/index.js"
 ));
 
+require.modules["component-scroll-to"] = require.modules["component~scroll-to@0.0.1"];
+require.modules["component~scroll-to"] = require.modules["component~scroll-to@0.0.1"];
+require.modules["scroll-to"] = require.modules["component~scroll-to@0.0.1"];
 
-require.register("livechart/index.js", Function("exports, require, module",
-"var LineChart = require('./lib/linechart');\n\
-var AreaChart = require('./lib/areachart');\n\
-var PieChart = require('./lib/piechart');\n\
-var BarChart = require('./lib/barchart');\n\
-var ArcChart = require('./lib/arcchart');\n\
-var PolarChart = require('./lib/polarchart');\n\
-var Histogram = require('./lib/histogram');\n\
+
+require.register("livechart", Function("exports, module",
+"var LineChart = require(\"livechart/lib/linechart.js\");\n\
+var AreaChart = require(\"livechart/lib/areachart.js\");\n\
+var PieChart = require(\"livechart/lib/piechart.js\");\n\
+var BarChart = require(\"livechart/lib/barchart.js\");\n\
+var ArcChart = require(\"livechart/lib/arcchart.js\");\n\
+var PolarChart = require(\"livechart/lib/polarchart.js\");\n\
+var Histogram = require(\"livechart/lib/histogram.js\");\n\
 \n\
 module.exports.LineChart = LineChart;\n\
 module.exports.AreaChart = AreaChart;\n\
@@ -6747,19 +7222,21 @@ module.exports.PieChart = PieChart;\n\
 module.exports.BarChart = BarChart;\n\
 module.exports.ArcChart = ArcChart;\n\
 module.exports.Histogram = Histogram;\n\
-//@ sourceURL=livechart/index.js"
+\n\
+//# sourceURL=index.js"
 ));
-require.register("livechart/lib/chart.js", Function("exports, require, module",
-"var autoscale = require('autoscale-canvas');\n\
-var resize = require('resize');\n\
-var debounce = require ('debounce');\n\
-var Configurable = require('configurable.js');\n\
-var Emitter = require ('emitter');\n\
-var raf = require ('raf');\n\
-var style = require ('style');\n\
-var Tween = require ('tween');\n\
-var min = require ('min');\n\
-var max = require ('max');\n\
+
+require.register("livechart/lib/chart.js", Function("exports, module",
+"var autoscale = require(\"component~autoscale-canvas@0.0.3\");\n\
+var resize = require(\"ramitos~resize@master\");\n\
+var debounce = require(\"component~debounce@0.0.3\");\n\
+var Configurable = require(\"visionmedia~configurable.js@master\");\n\
+var Emitter = require(\"component~emitter@1.0.0\");\n\
+var raf = require(\"component~raf@1.1.3\");\n\
+var style = require(\"component~style@master\");\n\
+var Tween = require(\"component~tween@1.1.0\");\n\
+var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
 \n\
 \n\
 var styles = window.getComputedStyle;\n\
@@ -6938,14 +7415,16 @@ function getChartStyle (cn, sn, parse) {\n\
 }\n\
 \n\
 module.exports = Chart;\n\
-//@ sourceURL=livechart/lib/chart.js"
+\n\
+//# sourceURL=lib/chart.js"
 ));
-require.register("livechart/lib/barchart.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
-var style = require ('style');\n\
+
+require.register("livechart/lib/barchart.js", Function("exports, module",
+"var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
+var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
+var style = require(\"component~style@master\");\n\
 \n\
 function BarChart(parent){\n\
   this.on('resize', function() {\n\
@@ -7043,13 +7522,15 @@ BarChart.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = BarChart;\n\
-//@ sourceURL=livechart/lib/barchart.js"
+\n\
+//# sourceURL=lib/barchart.js"
 ));
-require.register("livechart/lib/piechart.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
+
+require.register("livechart/lib/piechart.js", Function("exports, module",
+"var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
+var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
 \n\
 function PieChart(parent){\n\
   this.on('resize', function() {\n\
@@ -7130,14 +7611,16 @@ PieChart.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = PieChart;\n\
-//@ sourceURL=livechart/lib/piechart.js"
+\n\
+//# sourceURL=lib/piechart.js"
 ));
-require.register("livechart/lib/linechart.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
-var style = require ('style');\n\
+
+require.register("livechart/lib/linechart.js", Function("exports, module",
+"var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
+var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
+var style = require(\"component~style@master\");\n\
 \n\
 function LineChart(parent){\n\
   this.on('resize', function() {\n\
@@ -7292,15 +7775,17 @@ LineChart.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = LineChart;\n\
-//@ sourceURL=livechart/lib/linechart.js"
+\n\
+//# sourceURL=lib/linechart.js"
 ));
-require.register("livechart/lib/areachart.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
-var LineChart = require ('./linechart');\n\
-var style = require ('style');\n\
+
+require.register("livechart/lib/areachart.js", Function("exports, module",
+"var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
+var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
+var LineChart = require(\"livechart/lib/linechart.js\");\n\
+var style = require(\"component~style@master\");\n\
 \n\
 function AreaChart(parent){\n\
   this.on('resize', function() {\n\
@@ -7389,14 +7874,16 @@ AreaChart.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = AreaChart;\n\
-//@ sourceURL=livechart/lib/areachart.js"
+\n\
+//# sourceURL=lib/areachart.js"
 ));
-require.register("livechart/lib/arcchart.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
-var style = require ('style');\n\
+
+require.register("livechart/lib/arcchart.js", Function("exports, module",
+"var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
+var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
+var style = require(\"component~style@master\");\n\
 \n\
 function ArcChart(parent){\n\
   this.on('resize', function() {\n\
@@ -7490,14 +7977,16 @@ ArcChart.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = ArcChart;\n\
-//@ sourceURL=livechart/lib/arcchart.js"
+\n\
+//# sourceURL=lib/arcchart.js"
 ));
-require.register("livechart/lib/polarchart.js", Function("exports, require, module",
-"var min = require ('min');\n\
-var max = require ('max');\n\
-var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
-var style = require ('style');\n\
+
+require.register("livechart/lib/polarchart.js", Function("exports, module",
+"var min = require(\"component~min@1.0.0\");\n\
+var max = require(\"component~max@1.0.0\");\n\
+var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
+var style = require(\"component~style@master\");\n\
 \n\
 function PolarChart(parent){\n\
   this.on('resize', function() {\n\
@@ -7583,12 +8072,14 @@ PolarChart.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = PolarChart;\n\
-//@ sourceURL=livechart/lib/polarchart.js"
+\n\
+//# sourceURL=lib/polarchart.js"
 ));
-require.register("livechart/lib/histogram.js", Function("exports, require, module",
-"var inherit = require('inherit');\n\
-var Chart = require ('./chart');\n\
-var style = require ('style');\n\
+
+require.register("livechart/lib/histogram.js", Function("exports, module",
+"var inherit = require(\"component~inherit@0.0.3\");\n\
+var Chart = require(\"livechart/lib/chart.js\");\n\
+var style = require(\"component~style@master\");\n\
 \n\
 function Histogram(parent){\n\
   this.on('resize', function() {\n\
@@ -7725,165 +8216,10 @@ Histogram.prototype.draw = function(delta) {\n\
 }\n\
 \n\
 module.exports = Histogram;\n\
-//@ sourceURL=livechart/lib/histogram.js"
+\n\
+//# sourceURL=lib/histogram.js"
 ));
 
+require.modules["livechart"] = require.modules["livechart"];
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-require.alias("ramitos-resize/src/resize.js", "livechart/deps/resize/src/resize.js");
-require.alias("ramitos-resize/src/resize.js", "livechart/deps/resize/index.js");
-require.alias("ramitos-resize/src/resize.js", "resize/index.js");
-require.alias("ramitos-resize/src/resize.js", "ramitos-resize/index.js");
-require.alias("component-debounce/index.js", "livechart/deps/debounce/index.js");
-require.alias("component-debounce/index.js", "livechart/deps/debounce/index.js");
-require.alias("component-debounce/index.js", "debounce/index.js");
-require.alias("component-debounce/index.js", "component-debounce/index.js");
-require.alias("component-min/index.js", "livechart/deps/min/index.js");
-require.alias("component-min/index.js", "min/index.js");
-require.alias("component-to-function/index.js", "component-min/deps/to-function/index.js");
-
-require.alias("component-max/index.js", "livechart/deps/max/index.js");
-require.alias("component-max/index.js", "max/index.js");
-require.alias("component-to-function/index.js", "component-max/deps/to-function/index.js");
-
-require.alias("component-raf/index.js", "livechart/deps/raf/index.js");
-require.alias("component-raf/index.js", "raf/index.js");
-
-require.alias("component-tween/index.js", "livechart/deps/tween/index.js");
-require.alias("component-tween/index.js", "tween/index.js");
-require.alias("component-emitter/index.js", "component-tween/deps/emitter/index.js");
-require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
-
-require.alias("component-ease/index.js", "component-tween/deps/ease/index.js");
-
-require.alias("component-inherit/index.js", "livechart/deps/inherit/index.js");
-require.alias("component-inherit/index.js", "inherit/index.js");
-
-require.alias("component-emitter/index.js", "livechart/deps/emitter/index.js");
-require.alias("component-emitter/index.js", "emitter/index.js");
-require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
-
-require.alias("visionmedia-configurable.js/index.js", "livechart/deps/configurable.js/index.js");
-require.alias("visionmedia-configurable.js/index.js", "configurable.js/index.js");
-
-require.alias("component-autoscale-canvas/index.js", "livechart/deps/autoscale-canvas/index.js");
-require.alias("component-autoscale-canvas/index.js", "autoscale-canvas/index.js");
-
-require.alias("component-style/index.js", "livechart/deps/style/index.js");
-require.alias("component-style/index.js", "style/index.js");
-
-require.alias("chemzqm-highlight.js/index.js", "livechart/deps/highlight.js/index.js");
-require.alias("chemzqm-highlight.js/lib/1c.js", "livechart/deps/highlight.js/lib/1c.js");
-require.alias("chemzqm-highlight.js/lib/actionscript.js", "livechart/deps/highlight.js/lib/actionscript.js");
-require.alias("chemzqm-highlight.js/lib/apache.js", "livechart/deps/highlight.js/lib/apache.js");
-require.alias("chemzqm-highlight.js/lib/applescript.js", "livechart/deps/highlight.js/lib/applescript.js");
-require.alias("chemzqm-highlight.js/lib/avrasm.js", "livechart/deps/highlight.js/lib/avrasm.js");
-require.alias("chemzqm-highlight.js/lib/axapta.js", "livechart/deps/highlight.js/lib/axapta.js");
-require.alias("chemzqm-highlight.js/lib/bash.js", "livechart/deps/highlight.js/lib/bash.js");
-require.alias("chemzqm-highlight.js/lib/brainfuck.js", "livechart/deps/highlight.js/lib/brainfuck.js");
-require.alias("chemzqm-highlight.js/lib/clojure.js", "livechart/deps/highlight.js/lib/clojure.js");
-require.alias("chemzqm-highlight.js/lib/cmake.js", "livechart/deps/highlight.js/lib/cmake.js");
-require.alias("chemzqm-highlight.js/lib/coffeescript.js", "livechart/deps/highlight.js/lib/coffeescript.js");
-require.alias("chemzqm-highlight.js/lib/cpp.js", "livechart/deps/highlight.js/lib/cpp.js");
-require.alias("chemzqm-highlight.js/lib/cs.js", "livechart/deps/highlight.js/lib/cs.js");
-require.alias("chemzqm-highlight.js/lib/css.js", "livechart/deps/highlight.js/lib/css.js");
-require.alias("chemzqm-highlight.js/lib/d.js", "livechart/deps/highlight.js/lib/d.js");
-require.alias("chemzqm-highlight.js/lib/delphi.js", "livechart/deps/highlight.js/lib/delphi.js");
-require.alias("chemzqm-highlight.js/lib/diff.js", "livechart/deps/highlight.js/lib/diff.js");
-require.alias("chemzqm-highlight.js/lib/django.js", "livechart/deps/highlight.js/lib/django.js");
-require.alias("chemzqm-highlight.js/lib/dos.js", "livechart/deps/highlight.js/lib/dos.js");
-require.alias("chemzqm-highlight.js/lib/erlang-repl.js", "livechart/deps/highlight.js/lib/erlang-repl.js");
-require.alias("chemzqm-highlight.js/lib/erlang.js", "livechart/deps/highlight.js/lib/erlang.js");
-require.alias("chemzqm-highlight.js/lib/glsl.js", "livechart/deps/highlight.js/lib/glsl.js");
-require.alias("chemzqm-highlight.js/lib/go.js", "livechart/deps/highlight.js/lib/go.js");
-require.alias("chemzqm-highlight.js/lib/haskell.js", "livechart/deps/highlight.js/lib/haskell.js");
-require.alias("chemzqm-highlight.js/lib/highlight.js", "livechart/deps/highlight.js/lib/highlight.js");
-require.alias("chemzqm-highlight.js/lib/http.js", "livechart/deps/highlight.js/lib/http.js");
-require.alias("chemzqm-highlight.js/lib/ini.js", "livechart/deps/highlight.js/lib/ini.js");
-require.alias("chemzqm-highlight.js/lib/java.js", "livechart/deps/highlight.js/lib/java.js");
-require.alias("chemzqm-highlight.js/lib/javascript.js", "livechart/deps/highlight.js/lib/javascript.js");
-require.alias("chemzqm-highlight.js/lib/json.js", "livechart/deps/highlight.js/lib/json.js");
-require.alias("chemzqm-highlight.js/lib/lisp.js", "livechart/deps/highlight.js/lib/lisp.js");
-require.alias("chemzqm-highlight.js/lib/lua.js", "livechart/deps/highlight.js/lib/lua.js");
-require.alias("chemzqm-highlight.js/lib/markdown.js", "livechart/deps/highlight.js/lib/markdown.js");
-require.alias("chemzqm-highlight.js/lib/matlab.js", "livechart/deps/highlight.js/lib/matlab.js");
-require.alias("chemzqm-highlight.js/lib/mel.js", "livechart/deps/highlight.js/lib/mel.js");
-require.alias("chemzqm-highlight.js/lib/nginx.js", "livechart/deps/highlight.js/lib/nginx.js");
-require.alias("chemzqm-highlight.js/lib/objectivec.js", "livechart/deps/highlight.js/lib/objectivec.js");
-require.alias("chemzqm-highlight.js/lib/parser3.js", "livechart/deps/highlight.js/lib/parser3.js");
-require.alias("chemzqm-highlight.js/lib/perl.js", "livechart/deps/highlight.js/lib/perl.js");
-require.alias("chemzqm-highlight.js/lib/php.js", "livechart/deps/highlight.js/lib/php.js");
-require.alias("chemzqm-highlight.js/lib/profile.js", "livechart/deps/highlight.js/lib/profile.js");
-require.alias("chemzqm-highlight.js/lib/python.js", "livechart/deps/highlight.js/lib/python.js");
-require.alias("chemzqm-highlight.js/lib/r.js", "livechart/deps/highlight.js/lib/r.js");
-require.alias("chemzqm-highlight.js/lib/rib.js", "livechart/deps/highlight.js/lib/rib.js");
-require.alias("chemzqm-highlight.js/lib/rsl.js", "livechart/deps/highlight.js/lib/rsl.js");
-require.alias("chemzqm-highlight.js/lib/ruby.js", "livechart/deps/highlight.js/lib/ruby.js");
-require.alias("chemzqm-highlight.js/lib/rust.js", "livechart/deps/highlight.js/lib/rust.js");
-require.alias("chemzqm-highlight.js/lib/scala.js", "livechart/deps/highlight.js/lib/scala.js");
-require.alias("chemzqm-highlight.js/lib/smalltalk.js", "livechart/deps/highlight.js/lib/smalltalk.js");
-require.alias("chemzqm-highlight.js/lib/sql.js", "livechart/deps/highlight.js/lib/sql.js");
-require.alias("chemzqm-highlight.js/lib/tex.js", "livechart/deps/highlight.js/lib/tex.js");
-require.alias("chemzqm-highlight.js/lib/vala.js", "livechart/deps/highlight.js/lib/vala.js");
-require.alias("chemzqm-highlight.js/lib/vbscript.js", "livechart/deps/highlight.js/lib/vbscript.js");
-require.alias("chemzqm-highlight.js/lib/vhdl.js", "livechart/deps/highlight.js/lib/vhdl.js");
-require.alias("chemzqm-highlight.js/lib/xml.js", "livechart/deps/highlight.js/lib/xml.js");
-require.alias("chemzqm-highlight.js/index.js", "livechart/deps/highlight.js/index.js");
-require.alias("chemzqm-highlight.js/index.js", "highlight.js/index.js");
-require.alias("chemzqm-highlight.js/index.js", "chemzqm-highlight.js/index.js");
-require.alias("ui-component-resizable/index.js", "livechart/deps/resizable/index.js");
-require.alias("ui-component-resizable/template.js", "livechart/deps/resizable/template.js");
-require.alias("ui-component-resizable/resize.js", "livechart/deps/resizable/resize.js");
-require.alias("ui-component-resizable/index.js", "resizable/index.js");
-require.alias("ui-component-mouse/index.js", "ui-component-resizable/deps/mouse/index.js");
-require.alias("component-emitter/index.js", "ui-component-mouse/deps/emitter/index.js");
-require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
-
-require.alias("component-event/index.js", "ui-component-mouse/deps/event/index.js");
-
-require.alias("visionmedia-configurable.js/index.js", "ui-component-resizable/deps/configurable.js/index.js");
-
-require.alias("component-emitter/index.js", "ui-component-resizable/deps/emitter/index.js");
-require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
-
-require.alias("component-domify/index.js", "ui-component-resizable/deps/domify/index.js");
-
-require.alias("component-classes/index.js", "ui-component-resizable/deps/classes/index.js");
-require.alias("component-indexof/index.js", "component-classes/deps/indexof/index.js");
-
-require.alias("yields-merge/index.js", "ui-component-resizable/deps/merge/index.js");
-
-require.alias("component-scroll-to/index.js", "livechart/deps/scroll-to/index.js");
-require.alias("component-scroll-to/index.js", "livechart/deps/scroll-to/index.js");
-require.alias("component-scroll-to/index.js", "scroll-to/index.js");
-require.alias("component-raf/index.js", "component-scroll-to/deps/raf/index.js");
-
-require.alias("component-tween/index.js", "component-scroll-to/deps/tween/index.js");
-require.alias("component-emitter/index.js", "component-tween/deps/emitter/index.js");
-require.alias("component-indexof/index.js", "component-emitter/deps/indexof/index.js");
-
-require.alias("component-ease/index.js", "component-tween/deps/ease/index.js");
-
-require.alias("component-scroll-to/index.js", "component-scroll-to/index.js");
-require.alias("component-ease/index.js", "livechart/deps/ease/index.js");
-require.alias("component-ease/index.js", "ease/index.js");
-
-
-require.alias("livechart/index.js", "livechart/index.js");
