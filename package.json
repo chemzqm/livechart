@@ -1,0 +1,49 @@
+{
+  "name": "component-livechart",
+  "version": "1.0.0",
+  "description": "Scalable canvas chart for live data",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chemzqm/livechart.git"
+  },
+  "keywords": [
+    "live",
+    "data",
+    "chart"
+  ],
+  "author": "chemzqm@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/chemzqm/livechart/issues"
+  },
+  "homepage": "https://github.com/chemzqm/livechart#readme",
+  "browser": {
+    "resize": "component-resize",
+    "min": "component-min",
+    "max": "max-component",
+    "raf": "component-raf",
+    "tween": "component-tween",
+    "inherit": "component-inherit",
+    "emitter": "component-emitter",
+    "configurable.js": "configurable",
+    "style": "style-component"
+  },
+  "dependencies": {
+    "autoscale-canvas": "0.0.3",
+    "component-emitter": "^1.2.0",
+    "component-inherit": "0.0.3",
+    "component-min": "^1.0.0",
+    "component-raf": "^1.2.0",
+    "component-resize": "^0.1.0",
+    "component-tween": "^1.2.0",
+    "configurable": "0.0.1",
+    "debounce": "^1.0.0",
+    "max-component": "^1.0.0",
+    "style-component": "0.0.1"
+  },
+  "style": "./livechart.css"
+}
