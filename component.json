@@ -5,7 +5,7 @@
   "version": "0.0.1",
   "keywords": [],
   "dependencies": {
-    "ramitos/resize": "*",
+    "chemzqm/resize": "*",
     "component/debounce": "*",
     "component/min": "*",
     "component/max": "*",
